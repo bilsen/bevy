@@ -8,7 +8,7 @@ use crate::{
     query::{
         FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch, WorldQuery,
     },
-    system::{CommandQueue, Commands, Query, SystemMeta},
+    system::{CommandQueue, Commands, Query, SystemMeta, SystemId},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
@@ -1154,6 +1154,39 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
+    }
+}
+
+// SAFE: Only reads internal system state
+unsafe impl ReadOnlySystemParamFetch for SystemIdState {}
+
+impl SystemParam for SystemId {
+    type Fetch = SystemIdState;
+}
+
+/// The [`SystemParamState`] of [`SystemId`].
+pub struct SystemIdState {}
+
+unsafe impl SystemParamState for SystemIdState {
+    type Config = ();
+
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
+        Self {}
+    }
+
+    fn default_config() {}
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for SystemIdState {
+    type Item = SystemId;
+
+    unsafe fn get_param(
+        _state: &'s mut Self,
+        system_meta: &SystemMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        system_meta.id
     }
 }
 
