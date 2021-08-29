@@ -1,5 +1,6 @@
 pub mod archetype;
 pub mod bundle;
+#[macro_use]
 pub mod change_detection;
 pub mod component;
 pub mod entity;

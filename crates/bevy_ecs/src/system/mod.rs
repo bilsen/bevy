@@ -6,6 +6,7 @@ mod query;
 mod system;
 mod system_chaining;
 mod system_param;
+mod system_res;
 
 pub use commands::*;
 pub use exclusive_system::*;
@@ -14,6 +15,7 @@ pub use query::*;
 pub use system::*;
 pub use system_chaining::*;
 pub use system_param::*;
+pub use system_res::*;
 
 #[cfg(test)]
 mod tests {
