@@ -117,6 +117,8 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
+/// A FilteredAccess<ComponentId> implicitly describes an Access<ArchetypeComponentId> by checking if 
+/// the ArchetypeComponentId matches a filter
 #[derive(Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
@@ -210,6 +212,14 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
         self.combined_access.extend(&filtered_access.access);
         self.filtered_accesses.push(filtered_access);
+    }
+}
+
+impl<T: SparseSetIndex> Into<FilteredAccessSet<T>> for FilteredAccess<T> {
+    fn into(self) -> FilteredAccessSet<T> {
+        let set = FilteredAccessSet::default();
+        set.add(self);
+        set
     }
 }
 
