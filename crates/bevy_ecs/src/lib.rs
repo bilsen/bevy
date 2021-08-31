@@ -1,3 +1,5 @@
+#![feature(log_syntax)]
+
 pub mod archetype;
 pub mod bundle;
 pub mod change_detection;

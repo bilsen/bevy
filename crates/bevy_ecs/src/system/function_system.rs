@@ -12,6 +12,8 @@ use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};
 
 /// The metadata of a [`System`].
+
+#[derive(Clone)]
 pub struct SystemMeta {
     pub(crate) id: SystemId,
     pub(crate) name: Cow<'static, str>,
