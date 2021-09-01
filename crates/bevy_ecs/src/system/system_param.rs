@@ -207,101 +207,133 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
 pub struct ParamSetState<T>(T);
 
 
-// impl<'w, 's, P0: SystemParam> SystemParam for ParamSet<'w, 's, (P0,)>
-// {
-//     type Fetch = ParamSetState<(P0::Fetch,)>;
-// }
+impl<'w, 's, P0: SystemParam, P1: SystemParam> SystemParam for ParamSet<'w, 's, (P0,P1)>
+{
+    type Fetch = ParamSetState<(P0::Fetch, P1::Fetch)>;
+}
 
-// // SAFE: All Queries are constrained to ReadOnlyFetch, so World is only read
+// SAFE: All Queries are constrained to ReadOnlyFetch, so World is only read
 
-// unsafe impl<PF0: for<'w1, 's1> SystemParamFetch<'w1, 's1>> ReadOnlySystemParamFetch for ParamSetState<((PF0,))>
-// where PF0: ReadOnlyFetch
-// { }
+unsafe impl<PF0: for<'w1, 's1> SystemParamFetch<'w1, 's1>, PF1: for<'w1, 's1> SystemParamFetch<'w1, 's1>> ReadOnlySystemParamFetch for ParamSetState<((PF0,PF1))>
+where PF0: ReadOnlyFetch, PF1: ReadOnlyFetch
+{ }
 
-// // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
-// // with any prior access, a panic will occur.
+// SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts
+// with any prior access, a panic will occur.
 
-// unsafe impl<PF0: for<'w1, 's1> SystemParamFetch<'w1, 's1>> SystemParamState for ParamSetState<(PF0,)>
-// {
-//     type Config = (PF0::Config,);
+unsafe impl<PF0: for<'w1, 's1> SystemParamFetch<'w1, 's1>, PF1: for<'w1, 's1> SystemParamFetch<'w1, 's1>> SystemParamState for ParamSetState<(PF0,PF1)>
+{
+    type Config = (PF0::Config,PF1::Config);
 
 
-//     fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
-//         let (value,) = config;
+    fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
+        let (value0, value1,) = config;
         
-        
-//             // Pretend to add each param to the system alone, see if it conflicts
-//             let param = PF0::init(world, &mut system_meta.clone(), value);
+            let mut system_meta1 = system_meta.clone();
+            let mut system_meta2 = system_meta.clone();
+            
+            // Pretend to add each param to the system alone, see if it conflicts
+            let param0 = PF0::init(world, &mut (system_meta1), value0);
         
             
-//             system_meta
-//                 .component_access_set
-//                 .extend(&param.component_access_set());
-//             system_meta
-//                 .archetype_component_access
-//                 .extend(&param.archetype_component_access());
-        
-//         ParamSetState((param,))
-//     }
+            system_meta
+                .component_access_set
+                .extend(&param0.component_access_set());
+            system_meta
+                .archetype_component_access
+                .extend(&param0.archetype_component_access());
 
-//     fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
-//         let (param,) = &mut self.0;
-        
-//             param.new_archetype(archetype, system_meta);
-//             // system_meta
-//             //     .archetype_component_access
-//             //     .extend(&#param.archetype_component_access(&*self.world));
-        
-//     }
-
-//     fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
-//         let (param,) = &self.0;
-//         let mut combined_access = Access::<ArchetypeComponentId>::default();
-        
-//             combined_access.extend(&param.archetype_component_access());
-//         combined_access
-//     }
-
-//     fn component_access_set(&self) -> FilteredAccessSet<ComponentId> {
-//         let (param,) = &self.0;
-//         let mut combined_access = FilteredAccessSet::<ComponentId>::default();
+            let param1 = PF1::init(world, &mut (system_meta2), value1);
     
-//             combined_access.extend(&param.component_access_set());
-//         combined_access
-//     }
+        
+            system_meta
+                .component_access_set
+                .extend(&param1.component_access_set());
+            system_meta
+                .archetype_component_access
+                .extend(&param1.archetype_component_access());
+        
+        ParamSetState((param0,param1))
+    }
 
-//     fn default_config() -> Self::Config {
-//         (PF0::default_config(),)
-//     }
-// }
+    fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        let (param0, param1) = &mut self.0;
+        
+            param0.new_archetype(archetype, system_meta);
+            param1.new_archetype(archetype, system_meta);
+            // system_meta
+            //     .archetype_component_access
+            //     .extend(&#param.archetype_component_access(&*self.world));
+        
+    }
 
-// impl<'w, 's, PF0: for<'w1, 's1> SystemParamFetch<'w1, 's1>> SystemParamFetch<'w, 's> for ParamSetState<(PF0,)>
-// {
-//     type Item = ParamSet<'w, 's, (<PF0 as SystemParamFetch<'w, 's>>::Item,)>;
+    fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
+        let (param0, param1) = &self.0;
+        let mut combined_access = Access::<ArchetypeComponentId>::default();
+        
+            combined_access.extend(&param0.archetype_component_access());
+            combined_access.extend(&param1.archetype_component_access());
+            
+        combined_access
+    }
 
-//     #[inline]
-//     unsafe fn get_param(
-//         state: &'s mut Self,
-//         system_meta: &SystemMeta,
-//         world: &'w World,
-//         change_tick: u32,
-//     ) -> Self::Item {
-//         ParamSet {
-//             param_states: &mut state.0,
-//             system_meta: system_meta.clone(),
-//             world,
-//             last_change_tick: system_meta.last_change_tick,
-//             change_tick,
-//         }
-//     }
-// }
-// impl<'w, 's, #(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ParamSet<'w, 's, (#(#param,)*)>
-// {
+    fn component_access_set(&self) -> FilteredAccessSet<ComponentId> {
+        let (param0, param1) = &self.0;
+        let mut combined_access = FilteredAccessSet::<ComponentId>::default();
+    
+            combined_access.extend(&param0.component_access_set());
+            combined_access.extend(&param1.component_access_set());
+        combined_access
+    }
 
-//     #(#param_fn_mut)*
-// }
+    fn default_config() -> Self::Config {
+        (PF0::default_config(),PF1::default_config())
+    }
+}
 
-impl_param_set!();
+impl<'w, 's, PF0: for<'w1, 's1> SystemParamFetch<'w1, 's1>, PF1: for<'w1, 's1> SystemParamFetch<'w1, 's1>> SystemParamFetch<'w, 's> for ParamSetState<(PF0, PF1)>
+{
+    type Item = ParamSet<'w, 's, (<PF0 as SystemParamFetch<'w, 's>>::Item,<PF1 as SystemParamFetch<'w, 's>>::Item)>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'s mut Self,
+        system_meta: &SystemMeta,
+        world: &'w World,
+        change_tick: u32,
+    ) -> Self::Item {
+        ParamSet {
+            param_states: &mut state.0,
+            system_meta: system_meta.clone(),
+            world,
+            last_change_tick: system_meta.last_change_tick,
+            change_tick,
+        }
+    }
+}
+impl<'w, 's, P0: SystemParam, P1: SystemParam> ParamSet<'w, 's, (P0, P1)>
+where
+    P0::Fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,
+    P1::Fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>
+{
+
+    pub fn p0<'a>(&'a mut self) -> <P0::Fetch as SystemParamFetch<'a, 'a>>::Item
+    {
+        unsafe {
+            <P0::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.0, &self.system_meta, self.world, self.change_tick)
+        }
+    }
+
+    pub fn p1<'a>(&'a mut self) -> <P1::Fetch as SystemParamFetch<'a, 'a>>::Item
+    {
+        unsafe {
+            <P1::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.1, &self.system_meta, self.world, self.change_tick)
+        }
+    }
+
+}
+
+// impl_param_set!();
 
 
 
