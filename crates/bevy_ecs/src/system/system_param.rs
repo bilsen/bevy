@@ -13,7 +13,7 @@ use crate::{
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ecs_macros::{all_tuples, impl_param_set, impl_query_set};
+use bevy_ecs_macros::{all_tuples, impl_param_set};
 use std::{
     any::TypeId,
     default,
@@ -200,17 +200,6 @@ fn assert_component_access_compatibility(
     panic!("The parameter {} in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Allowing this would break Rust's mutability rules. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `QuerySet`.",
         param_type, system_name, accesses);
 }
-
-pub struct QuerySet<'w, 's, T> {
-    query_states: &'s T,
-    world: &'w World,
-    last_change_tick: u32,
-    change_tick: u32,
-}
-
-pub struct QuerySetState<T>(T);
-
-impl_query_set!();
 
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
