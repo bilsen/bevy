@@ -13,10 +13,10 @@ fn main() {
 /// Spawn some players to count
 fn spawn(mut test: ParamSet<(ResMut<usize>,ResMut<usize>)>) {
     let mut res = test.p0();
-    let mut res2 = test.p1();
     *res += 1;
     println!("res now {}", *res);
-
+    
+    let mut res2 = test.p1();
     *res2 += 1;
     println!("res then {}", *res2);
 }

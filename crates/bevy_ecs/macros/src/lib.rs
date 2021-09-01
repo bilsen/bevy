@@ -226,11 +226,10 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     #(
                         let mut #query = QueryState::<#query, #filter>::new(world);
                         assert_component_access_compatibility(
-                            &system_meta.name,
+                            &system_meta,
                             std::any::type_name::<Query<#query, #filter>>(),
-                            &system_meta.component_access_set,
-                            &#query.component_access_set(),
-                            world,
+                            &#query,
+                            &world,
                         );
                     )*
                     #(
@@ -317,18 +316,18 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let values = get_idents(|i| format!("p{}", i), max_params);
     let mut param_fn_muts = Vec::new();
     for i in 0..max_params {
-        let param_fetch = &params_fetch[i];
+        let param = &params[i];
     
         let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
         let index = Index::from(i);
         param_fn_muts.push(quote! {
-            pub fn #fn_name(&mut self) -> <#param_fetch as SystemParamFetch<'_, '_>>::Item {
+            pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
                 
                 // SAFE: systems run without conflicts with other systems.
-                // Conflicting queries in QuerySet are not accessible at the same time
-                // QuerySets are guaranteed to not conflict with other SystemParams
+                // Conflicting queries in ParamSet are not accessible at the same time
+                // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    #param_fetch::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
+                    <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
         });
@@ -348,7 +347,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             // SAFE: All Queries are constrained to ReadOnlyFetch, so World is only read
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
-            where #(#param_fetch: ReadOnlyFetch,)*
+            where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
             // SAFE: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any QueryState conflicts

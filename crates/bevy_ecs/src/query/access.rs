@@ -190,11 +190,6 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         &self.combined_access
     }
 
-    #[inline]
-    pub fn combined_access_mut(&mut self) -> &mut Access<T> {
-        &mut self.combined_access
-    }
-
     pub fn get_conflicts(&self, filtered_access: &FilteredAccess<T>) -> Vec<T> {
         // if combined unfiltered access is incompatible, check each filtered access for
         // compatibility
