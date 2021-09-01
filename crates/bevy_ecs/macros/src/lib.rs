@@ -306,7 +306,6 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
-
 #[proc_macro]
 pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
@@ -317,13 +316,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut param_fn_muts = Vec::new();
     for i in 0..max_params {
         let param = &params[i];
-    
         let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
-
         let index = Index::from(i);
         param_fn_muts.push(quote! {
             pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
-                
                 // SAFE: systems run without conflicts with other systems.
                 // Conflicting queries in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
@@ -361,13 +357,11 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 
                 fn init(world: &mut World, system_meta: &mut SystemMeta, config: Self::Config) -> Self {
                     let (#(#value,)*) = config;
-                    
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
                         let #param = #param_fetch::init(world, &mut system_meta.clone(), #value);
                     )*
                     #(
-                        
                         system_meta
                             .component_access_set
                             .extend(&#param.component_access_set());

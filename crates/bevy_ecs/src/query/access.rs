@@ -117,7 +117,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
-/// A FilteredAccess<ComponentId> implicitly describes an Access<ArchetypeComponentId> by checking if 
+/// A FilteredAccess<ComponentId> implicitly describes an Access<ArchetypeComponentId> by checking if
 /// the ArchetypeComponentId matches a filter
 #[derive(Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
@@ -194,7 +194,6 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         // if combined unfiltered access is incompatible, check each filtered access for
         // compatibility
 
-        
         if !filtered_access.access.is_compatible(&self.combined_access) {
             for current_filtered_access in self.filtered_accesses.iter() {
                 if !current_filtered_access.is_compatible(filtered_access) {
@@ -228,8 +227,10 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     pub fn extend(&mut self, filtered_access_set: &FilteredAccessSet<T>) {
-        self.combined_access.extend(filtered_access_set.combined_access());
-        self.filtered_accesses.extend(filtered_access_set.filtered_accesses.clone());
+        self.combined_access
+            .extend(filtered_access_set.combined_access());
+        self.filtered_accesses
+            .extend(filtered_access_set.filtered_accesses.clone());
     }
 }
 

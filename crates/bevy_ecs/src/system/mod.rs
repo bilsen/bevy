@@ -27,7 +27,7 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, Query, ParamSet,
+            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, ParamSet, Query,
             RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
@@ -253,11 +253,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn conflicting_query_sets_system() {
-        fn sys(
-            _set_1: ParamSet<(Query<&mut A>,)>,
-            _set_2: ParamSet<(Query<&mut A>, Query<&B>)>,
-        ) {
-        }
+        fn sys(_set_1: ParamSet<(Query<&mut A>,)>, _set_2: ParamSet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -524,11 +520,8 @@ mod tests {
         world.insert_resource(A(42));
         world.spawn().insert(B(7));
 
-        let mut system_state: SystemState<(
-            Res<A>,
-            Query<&B>,
-            ParamSet<(Query<&C>, Query<&D>)>,
-        )> = SystemState::new(&mut world);
+        let mut system_state: SystemState<(Res<A>, Query<&B>, ParamSet<(Query<&C>, Query<&D>)>)> =
+            SystemState::new(&mut world);
         let (a, query, _) = system_state.get(&world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
