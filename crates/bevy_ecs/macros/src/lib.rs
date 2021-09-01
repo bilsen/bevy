@@ -319,6 +319,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         let param = &params[i];
     
         let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
+
         let index = Index::from(i);
         param_fn_muts.push(quote! {
             pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
