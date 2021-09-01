@@ -1,8 +1,26 @@
 pub use crate::change_detection::{NonSendMut, ResMut};
-use crate::{archetype::{Archetype, ArchetypeComponentId, Archetypes}, bundle::Bundles, change_detection::Ticks, component::{Component, ComponentId, ComponentTicks, Components}, entity::{Entities, Entity}, query::{Access, FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch, WorldQuery}, system::{CommandQueue, Commands, Query, SystemMeta}, world::{FromWorld, World}};
+use crate::{
+    archetype::{Archetype, ArchetypeComponentId, Archetypes},
+    bundle::Bundles,
+    change_detection::Ticks,
+    component::{Component, ComponentId, ComponentTicks, Components},
+    entity::{Entities, Entity},
+    query::{
+        Access, FilterFetch, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyFetch,
+        WorldQuery,
+    },
+    system::{CommandQueue, Commands, Query, SystemMeta},
+    world::{FromWorld, World},
+};
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ecs_macros::{all_tuples, impl_query_set, impl_param_set};
-use std::{any::TypeId, default, fmt::Debug, marker::PhantomData, ops::{Deref, DerefMut}};
+use bevy_ecs_macros::{all_tuples, impl_param_set, impl_query_set};
+use std::{
+    any::TypeId,
+    default,
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -71,8 +89,7 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 /// This must only be implemented for [`SystemParamFetch`] impls that exclusively read the World passed in to [`SystemParamFetch::get_param`]
 pub unsafe trait ReadOnlySystemParamFetch {}
 
-pub trait SystemParamFetch<'world, 'state>: SystemParamState
-{
+pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     type Item: SystemParam<Fetch = Self>;
     /// # Safety
     ///
@@ -162,18 +179,16 @@ where
     }
 }
 
-
 fn assert_component_access_compatibility(
     system_meta: &SystemMeta,
     param_type: &'static str,
     state: &impl SystemParamState,
     world: &World,
-) 
-{
+) {
     let system_name = &system_meta.name;
-    let mut conflicts = system_meta.component_access_set.get_conflicts_set(
-        &state.component_access_set()
-    );
+    let mut conflicts = system_meta
+        .component_access_set
+        .get_conflicts_set(&state.component_access_set());
     if conflicts.is_empty() {
         return;
     }
@@ -208,10 +223,6 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
 pub struct ParamSetState<T>(T);
 
 impl_param_set!();
-
-
-
-
 
 /// Shared borrow of a resource.
 ///
@@ -295,7 +306,7 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
         let archetype_component_id = resource_archetype
             .get_archetype_component_id(component_id)
             .unwrap();
-        
+
         let state = Self {
             archetype_component_id,
             component_id,
@@ -317,7 +328,6 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
     }
 
     fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
-        
         let mut base_access = Access::<ArchetypeComponentId>::default();
         base_access.add_read(self.archetype_component_id);
         base_access
@@ -426,7 +436,6 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
     type Config = ();
 
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
-        
         let component_id = world.initialize_resource::<T>();
         let resource_archetype = world.archetypes.resource();
         let archetype_component_id = resource_archetype
@@ -464,7 +473,7 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
         base_access.add_write(self.component_id);
         base_access.into()
     }
-    
+
     fn default_config() {}
 }
 
@@ -664,7 +673,7 @@ unsafe impl<T: Component + FromWorld> SystemParamState for LocalState<T> {
     fn component_access_set(&self) -> FilteredAccessSet<ComponentId> {
         Default::default()
     }
-    
+
     fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
         Default::default()
     }
@@ -870,7 +879,6 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
             .archetype_component_access
             .extend(&state.archetype_component_access());
         state
-        
     }
 
     fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
@@ -1014,7 +1022,6 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     }
 
     fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
-        
         let mut base_access = Access::<ArchetypeComponentId>::default();
         base_access.add_write(self.archetype_component_id);
         base_access
@@ -1024,7 +1031,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         let mut base_access = FilteredAccess::default();
         base_access.add_write(self.component_id);
         base_access.into()
-    }    
+    }
 
     fn default_config() {}
 }
@@ -1075,9 +1082,9 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
     }
 
     fn component_access_set(&self) -> FilteredAccessSet<ComponentId> {
-        Default::default()    
+        Default::default()
     }
-    
+
     fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
         Default::default()
     }
@@ -1373,7 +1380,7 @@ macro_rules! impl_system_param_tuple {
             fn component_access_set(&self) -> FilteredAccessSet<ComponentId> {
                 Default::default()
             }
-        
+
             fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
                 Default::default()
             }
