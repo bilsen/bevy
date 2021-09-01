@@ -2,8 +2,9 @@ use crate::{CalculatedSize, Node, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
+    prelude::ParamSet,
     query::{Changed, Or, QueryState, With, Without},
-    system::{Local, Query, QuerySet, Res, ResMut},
+    system::{Local, Query, Res, ResMut},
 };
 use bevy_math::Size;
 use bevy_render::{
@@ -52,10 +53,10 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
-    mut text_queries: QuerySet<(
-        QueryState<Entity, Or<(Changed<Text>, Changed<Style>)>>,
-        QueryState<Entity, (With<Text>, With<Style>)>,
-        QueryState<(&Text, &Style, &mut CalculatedSize)>,
+    mut text_queries: ParamSet<(
+        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
+        Query<Entity, (With<Text>, With<Style>)>,
+        Query<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
     let scale_factor = if let Some(window) = windows.get_primary() {
@@ -69,12 +70,12 @@ pub fn text_system(
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // Adds all entities where the text or the style has changed to the local queue
-        for entity in text_queries.q0().iter() {
+        for entity in text_queries.p0().iter() {
             queued_text.entities.push(entity);
         }
     } else {
         // If the scale factor has changed, queue all text
-        for entity in text_queries.q1().iter() {
+        for entity in text_queries.p1().iter() {
             queued_text.entities.push(entity);
         }
         *last_scale_factor = scale_factor;
@@ -86,7 +87,7 @@ pub fn text_system(
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();
-    let mut query = text_queries.q2();
+    let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
             let node_size = Size::new(

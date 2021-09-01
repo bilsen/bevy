@@ -2,8 +2,9 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
+    prelude::ParamSet,
     query::{Changed, QueryState, With, Without},
-    system::{Local, Query, QuerySet, Res, ResMut},
+    system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{Size, Vec3};
 use bevy_render::{
@@ -135,13 +136,13 @@ pub fn text2d_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
-    mut text_queries: QuerySet<(
-        QueryState<Entity, (With<MainPass>, Changed<Text>)>,
-        QueryState<(&Text, &mut Text2dSize), With<MainPass>>,
+    mut text_queries: ParamSet<(
+        Query<Entity, (With<MainPass>, Changed<Text>)>,
+        Query<(&Text, &mut Text2dSize), With<MainPass>>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
-    for entity in text_queries.q0().iter_mut() {
+    for entity in text_queries.p0().iter_mut() {
         queued_text.entities.push(entity);
     }
 
@@ -157,7 +158,7 @@ pub fn text2d_system(
 
     // Computes all text in the local queue
     let mut new_queue = Vec::new();
-    let mut query = text_queries.q1();
+    let mut query = text_queries.p1();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
             match text_pipeline.queue_text(
