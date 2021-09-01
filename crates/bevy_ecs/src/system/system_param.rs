@@ -1003,7 +1003,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
 
         assert_component_access_compatibility(
             &system_meta,
-            std::any::type_name::<NonSend<T>>(),
+            std::any::type_name::<NonSendMut<T>>(),
             &state,
             world,
         );
