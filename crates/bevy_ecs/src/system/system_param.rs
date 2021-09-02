@@ -51,11 +51,12 @@ pub trait SystemParam: Sized {
 /// The state of a [`SystemParam`].
 ///
 /// # Safety
-///
-/// It is the implementor's responsibility to ensure `system_meta` is populated with the _exact_
+/// 
+/// It is the implementor's responsibility to 
+/// 1. ensure `system_meta` is populated with the _exact_
 /// [`World`] access used by the `SystemParamState` (and associated [`SystemParamFetch`]).
-/// Additionally, it is the implementor's responsibility to ensure there is no
-/// conflicting access across all SystemParams.
+/// 2. ensure there is no conflicting access across all SystemParams.
+/// 3. ensure that `archetype_component_access` and `component_access_set` correctly returns the accesses done by the parameter.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
     /// Values of this type can be used to adjust the behavior of the
     /// system parameter. For instance, this can be used to pass
