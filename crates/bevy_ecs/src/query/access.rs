@@ -117,7 +117,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
     with: FixedBitSet,
@@ -183,7 +183,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.without.union_with(&access.without);
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FilteredAccessSet<T: SparseSetIndex> {
     combined_access: Access<T>,
     filtered_accesses: Vec<FilteredAccess<T>>,
@@ -204,12 +204,12 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         // if combined unfiltered access is incompatible, check each filtered access for
         // compatibility
         let mut conflicts = HashSet::<usize>::default();
+        println!("hashset size {}", conflicts.len());
         if !filtered_access.access.is_compatible(&self.combined_access) {
             for current_filtered_access in self.filtered_accesses.iter() {
                 if !current_filtered_access.is_compatible(filtered_access) {
                     conflicts.extend(
-                        current_filtered_access
-                            .access
+                        current_filtered_access.access
                             .get_conflicts(&filtered_access.access)
                             .iter()
                             .map(|ind| ind.sparse_set_index()),
@@ -217,6 +217,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
                 }
             }
         }
+        println!("hashset size {}", conflicts.len());
         conflicts
             .iter()
             .map(|ind| T::get_sparse_set_index(*ind))
@@ -232,13 +233,11 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .is_compatible(&self.combined_access)
         {
             for current_filtered_access in filtered_access_set.filtered_accesses.iter() {
-                if !current_filtered_access.is_compatible(current_filtered_access) {
-                    conflicts.extend(
-                        self.get_conflicts(&current_filtered_access)
-                            .iter()
-                            .map(|ind| ind.sparse_set_index()),
-                    );
-                }
+                conflicts.extend(
+                    self.get_conflicts(&current_filtered_access)
+                        .iter()
+                        .map(|ind| ind.sparse_set_index()),
+                );
             }
         }
         conflicts
