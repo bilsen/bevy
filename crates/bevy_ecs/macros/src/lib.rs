@@ -230,7 +230,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                             std::any::type_name::<Query<#query, #filter>>(),
                             &#query,
                             world,
-                            ParamConflictType::Query,
+                            true,
                         );
                     )*
                     #(
