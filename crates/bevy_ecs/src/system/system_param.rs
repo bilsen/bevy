@@ -135,7 +135,7 @@ where
         );
         system_meta
             .component_access_set
-            .extend(&state.component_access_set());
+            .extend(state.component_access_set());
         system_meta
             .archetype_component_access
             .extend(&state.archetype_component_access());
@@ -307,7 +307,7 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
         );
         system_meta
             .component_access_set
-            .extend(&state.component_access_set());
+            .extend(state.component_access_set());
         system_meta
             .archetype_component_access
             .extend(&state.archetype_component_access());
@@ -443,7 +443,7 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
         );
         system_meta
             .component_access_set
-            .extend(&state.component_access_set());
+            .extend(state.component_access_set());
         system_meta
             .archetype_component_access
             .extend(&state.archetype_component_access());
@@ -863,7 +863,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         );
         system_meta
             .component_access_set
-            .extend(&state.component_access_set());
+            .extend(state.component_access_set());
         system_meta
             .archetype_component_access
             .extend(&state.archetype_component_access());
@@ -1004,7 +1004,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         );
         system_meta
             .component_access_set
-            .extend(&state.component_access_set());
+            .extend(state.component_access_set());
         system_meta
             .archetype_component_access
             .extend(&state.archetype_component_access());
