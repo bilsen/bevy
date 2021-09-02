@@ -132,6 +132,7 @@ where
             std::any::type_name::<Query<Q, F>>(),
             &state,
             world,
+            ParamConflictType::Query,
         );
         system_meta
             .component_access_set
@@ -178,11 +179,17 @@ where
     }
 }
 
+pub enum ParamConflictType {
+    Query,
+    Resource,
+    Default,
+}
 fn assert_component_access_compatibility(
     system_meta: &SystemMeta,
     param_type: &'static str,
     state: &impl SystemParamState,
     world: &World,
+    conflict_type: ParamConflictType,
 ) {
     let system_name = &system_meta.name;
     let mut conflicts = system_meta
@@ -196,8 +203,20 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("The parameter {} in system {} accesses component(s) {} in a way that conflicts with one or several previous system parameters. Allowing this would break Rust's mutability rules. Consider merging conflicting parameters in a `ParamSet`.",
-        param_type, system_name, accesses);
+    match conflict_type {
+        ParamConflictType::Query => {
+            panic!("The query {} in system {} accesses component(s) {} in a way that conflicts with one or several previous system parameters. Allowing this would break Rust's mutability rules. Consider using `Without<T>` to limit the access on the query or merging conflicting parameters in a `ParamSet`.",
+            param_type, system_name, accesses);
+        }
+        ParamConflictType::Resource => {
+            panic!("The resource {} in system {} conflicts with one or several previous system parameters. Allowing this would break Rust's mutability rules. Consider merging conflicting parameters in a `ParamSet`.",
+            param_type, system_name);
+        }
+        _ => {
+            panic!("The parameter {} in system {} accesses component(s) {} in a way that conflicts with one or several previous system parameters. Allowing this would break Rust's mutability rules. Consider merging conflicting parameters in a `ParamSet`.",
+            param_type, system_name, accesses);
+        }
+    }
 }
 
 pub struct QuerySet<'w, 's, T> {
@@ -315,6 +334,7 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
             std::any::type_name::<Res<T>>(),
             &state,
             world,
+            ParamConflictType::Resource,
         );
         system_meta
             .component_access_set
@@ -451,6 +471,7 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
             std::any::type_name::<ResMut<T>>(),
             &state,
             world,
+            ParamConflictType::Resource,
         );
         system_meta
             .component_access_set
@@ -871,6 +892,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
             std::any::type_name::<NonSend<T>>(),
             &state,
             world,
+            ParamConflictType::Resource,
         );
         system_meta
             .component_access_set
@@ -1011,6 +1033,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
             std::any::type_name::<NonSendMut<T>>(),
             &state,
             world,
+            ParamConflictType::Resource,
         );
         system_meta
             .component_access_set
