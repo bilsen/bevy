@@ -128,7 +128,7 @@ where
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         let state = QueryState::new(world);
         assert_component_access_compatibility(
-            &system_meta,
+            system_meta,
             std::any::type_name::<Query<Q, F>>(),
             &state,
             world,
@@ -311,7 +311,7 @@ unsafe impl<T: Component> SystemParamState for ResState<T> {
             marker: PhantomData,
         };
         assert_component_access_compatibility(
-            &system_meta,
+            system_meta,
             std::any::type_name::<Res<T>>(),
             &state,
             world,
@@ -447,7 +447,7 @@ unsafe impl<T: Component> SystemParamState for ResMutState<T> {
             marker: PhantomData,
         };
         assert_component_access_compatibility(
-            &system_meta,
+            system_meta,
             std::any::type_name::<ResMut<T>>(),
             &state,
             world,
@@ -867,7 +867,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         };
 
         assert_component_access_compatibility(
-            &system_meta,
+            system_meta,
             std::any::type_name::<NonSend<T>>(),
             &state,
             world,
@@ -1007,7 +1007,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         };
 
         assert_component_access_compatibility(
-            &system_meta,
+            system_meta,
             std::any::type_name::<NonSendMut<T>>(),
             &state,
             world,
