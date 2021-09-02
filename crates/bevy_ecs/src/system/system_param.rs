@@ -13,7 +13,7 @@ use crate::{
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ecs_macros::{all_tuples, impl_query_set};
+use bevy_ecs_macros::{all_tuples, impl_param_set, impl_query_set};
 use std::{
     fmt::Debug,
     marker::PhantomData,
@@ -211,6 +211,18 @@ pub struct QuerySetState<T>(T);
 
 impl_query_set!();
 
+
+
+pub struct ParamSet<'w, 's, T: SystemParam> {
+    param_states: &'s mut T::Fetch,
+    world: &'w World,
+    system_meta: SystemMeta,
+    change_tick: u32,
+}
+
+pub struct ParamSetState<T>(T);
+
+impl_param_set!();
 /// Shared borrow of a resource.
 ///
 /// # Panics
@@ -984,7 +996,6 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
 
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         system_meta.set_non_send();
-
         let component_id = world.components.get_or_insert_non_send_resource_id::<T>();
         let resource_archetype = world.archetypes.resource();
         let archetype_component_id = resource_archetype
