@@ -125,6 +125,14 @@ pub struct FilteredAccess<T: SparseSetIndex> {
     without: FixedBitSet,
 }
 
+impl<T: SparseSetIndex> Into<FilteredAccessSet<T>> for FilteredAccess<T> {
+    fn into(self) -> FilteredAccessSet<T> {
+        let mut base = FilteredAccessSet::<T>::default();
+        base.add(self);
+        base
+    }
+}
+
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
     fn default() -> Self {
         Self {
@@ -236,7 +244,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .collect()
     }
 
-    pub fn extend(&mut self, filtered_access_set: FilteredAccessSet<T>) {
+    pub fn extend(&mut self, filtered_access_set: &FilteredAccessSet<T>) {
         self.combined_access
             .extend(&filtered_access_set.combined_access);
         self.filtered_accesses
