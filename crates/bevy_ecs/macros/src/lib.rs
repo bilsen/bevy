@@ -226,11 +226,9 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     #(
                         let mut #query = QueryState::<#query, #filter>::new(world);
                         assert_component_access_compatibility(
-                            &system_meta.name,
-                            std::any::type_name::<#query>(),
-                            std::any::type_name::<#filter>(),
-                            &system_meta.component_access_set,
-                            &#query.component_access,
+                            &system_meta,
+                            std::any::type_name::<Query<#query, #filter>>(),
+                            &#query,
                             world,
                         );
                     )*
@@ -243,6 +241,24 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                             .extend(&#query.archetype_component_access);
                     )*
                     QuerySetState((#(#query,)*))
+                }
+
+                fn archetype_component_access(&self) -> Access<ArchetypeComponentId> {
+                    let (#(#query,)*) = &self.0;
+                    let mut combined_access = Access::<ArchetypeComponentId>::default();
+                    #({
+                        combined_access.extend(&#query.archetype_component_access());
+                    })*;
+                    combined_access
+                }
+
+                fn component_access_set(&self) -> FilteredAccessSet<ComponentId> {
+                    let (#(#query,)*) = &self.0;
+                    let mut combined_access = FilteredAccessSet::<ComponentId>::default();
+                    #({
+                        combined_access.extend(&#query.component_access_set());
+                    })*;
+                    combined_access
                 }
 
                 fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
