@@ -248,7 +248,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         self.combined_access
             .extend(&filtered_access_set.combined_access);
         self.filtered_accesses
-            .extend(filtered_access_set.filtered_accesses);
+            .extend(filtered_access_set.filtered_accesses.clone().into_iter());
     }
 
     pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
