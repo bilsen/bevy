@@ -13,7 +13,7 @@ use crate::{
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ecs_macros::{all_tuples, impl_query_set};
+use bevy_ecs_macros::{all_tuples, impl_param_set, impl_query_set};
 use std::{
     fmt::Debug,
     marker::PhantomData,
@@ -210,6 +210,17 @@ pub struct QuerySet<'w, 's, T> {
 pub struct QuerySetState<T>(T);
 
 impl_query_set!();
+
+pub struct ParamSet<'w, 's, T: SystemParam> {
+    param_states: &'s mut T::Fetch,
+    world: &'w World,
+    system_meta: SystemMeta,
+    change_tick: u32,
+}
+
+pub struct ParamSetState<T>(T);
+
+impl_param_set!();
 
 /// Shared borrow of a resource.
 ///
