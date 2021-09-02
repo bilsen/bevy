@@ -256,7 +256,7 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
                     let (#(#query,)*) = &self.0;
                     let mut combined_access = FilteredAccessSet::<ComponentId>::default();
                     #({
-                        combined_access.extend(&#query.component_access_set());
+                        combined_access.extend(#query.component_access_set());
                     })*;
                     combined_access
                 }
