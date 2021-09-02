@@ -27,8 +27,8 @@ mod tests {
         query::{Added, Changed, Or, QueryState, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, Query,
-            QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
+            ConfigurableSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut,
+            ParamSet, Query, QuerySet, RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -155,6 +155,34 @@ mod tests {
     }
 
     #[test]
+    fn or_param_set_system() {
+        // Regression test for issue #762
+        fn param_system(
+            mut ran: ResMut<bool>,
+            mut set: ParamSet<(
+                Query<(), Or<(Changed<A>, Changed<B>)>>,
+                Query<(), Or<(Added<A>, Added<B>)>>,
+            )>,
+        ) {
+            let changed = set.p0().iter().count();
+            let added = set.p1().iter().count();
+
+            assert_eq!(changed, 1);
+            assert_eq!(added, 1);
+
+            *ran = true;
+        }
+
+        let mut world = World::default();
+        world.insert_resource(false);
+        world.spawn().insert_bundle((A, B));
+
+        run_system(&mut world, param_system);
+
+        assert!(*world.get_resource::<bool>().unwrap(), "system ran");
+    }
+
+    #[test]
     fn changed_resource_system() {
         struct Added(usize);
         struct Changed(usize);
@@ -242,9 +270,25 @@ mod tests {
     }
 
     #[test]
+    fn param_set_system() {
+        fn sys(mut _set: ParamSet<(Query<&mut A>, Query<&A>)>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     #[should_panic]
     fn conflicting_query_with_query_set_system() {
         fn sys(_query: Query<&mut A>, _set: QuerySet<(QueryState<&mut A>, QueryState<&B>)>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_query_with_param_set_system() {
+        fn sys(_query: Query<&mut A>, _set: ParamSet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -258,6 +302,15 @@ mod tests {
             _set_2: QuerySet<(QueryState<&mut A>, QueryState<&B>)>,
         ) {
         }
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_param_sets_system() {
+        fn sys(_set_1: ParamSet<(Query<&mut A>,)>, _set_2: ParamSet<(Query<&mut A>, Query<&B>)>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -805,6 +858,24 @@ fn system_query_set_get_lifetime_safety_test() {}
 /// use bevy_ecs::prelude::*;
 /// struct A(usize);
 /// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
+///     let mut q2 = queries.q0();
+///     let mut b = q2.get_mut(*e).unwrap();
+///
+///     let q1 = queries.q1();
+///     let a = q1.get(*e).unwrap();
+///
+///     // this should fail to compile
+///     b.0 = a.0
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_param_set_get_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: QuerySet<(QueryState<&mut A>, QueryState<&A>)>, e: Res<Entity>) {
 ///     let q1 = queries.q1();
 ///     let a = q1.get(*e).unwrap();
 ///
@@ -817,6 +888,23 @@ fn system_query_set_get_lifetime_safety_test() {}
 #[allow(unused)]
 #[cfg(doc)]
 fn system_query_set_get_flip_lifetime_safety_test() {}
+
+/// ```compile_fail
+/// use bevy_ecs::prelude::*;
+/// struct A(usize);
+/// fn query_set(mut queries: ParamSet<(Query<&mut A>, Query<&A>)>, e: Res<Entity>) {
+///     let q1 = queries.p1();
+///     let a = q1.get(*e).unwrap();
+///
+///     let mut q2 = queries.p0();
+///     let mut b = q2.get_mut(*e).unwrap();
+///     // this should fail to compile
+///     b.0 = a.0
+/// }
+/// ```
+#[allow(unused)]
+#[cfg(doc)]
+fn system_param_set_get_flip_lifetime_safety_test() {}
 
 /// ```compile_fail
 /// use bevy_ecs::prelude::*;
