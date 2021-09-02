@@ -995,7 +995,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
 
     fn init(world: &mut World, system_meta: &mut SystemMeta, _config: Self::Config) -> Self {
         system_meta.set_non_send();
-        let component_id = world.components.get_or_insert_non_send_resource_id::<T>();
+        let component_id = world.initialize_non_send_resource::<T>();
         let resource_archetype = world.archetypes.resource();
         let archetype_component_id = resource_archetype
             .get_archetype_component_id(component_id)
