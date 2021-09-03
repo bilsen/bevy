@@ -13,7 +13,7 @@ use crate::{
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ecs_macros::{all_tuples, impl_param_set, impl_query_set};
+use bevy_ecs_macros::{all_tuples, impl_param_set};
 use std::{
     fmt::Debug,
     marker::PhantomData,
@@ -205,19 +205,6 @@ fn assert_component_access_compatibility(
                 query_type, filter_type, system_name, accesses);
 }
 
-pub struct QuerySet<'w, 's, T> {
-    query_states: &'s T,
-    world: &'w World,
-    last_change_tick: u32,
-    change_tick: u32,
-}
-
-pub struct QuerySetState<T>(T);
-
-impl_query_set!();
-
-pub trait Resource: Send + Sync + 'static {}
-impl<T> Resource for T where T: Send + Sync + 'static {}
 /// A set of possibly conflicting [`SystemParam`]s which can be accessed one at a time.
 ///
 /// The type parameter of a [`ParamSet`] is a tuple of up to 4 [`SystemParam`]s
