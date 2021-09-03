@@ -9,9 +9,9 @@ use bevy_core::cast_slice;
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    prelude::QueryState,
+    prelude::Query,
     query::{Changed, With},
-    system::{Local, QuerySet, Res},
+    system::{Local, ParamSet, Res},
     world::Mut,
 };
 use bevy_math::*;
@@ -512,9 +512,9 @@ pub fn mesh_resource_provider_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     meshes: Res<Assets<Mesh>>,
     mut mesh_events: EventReader<AssetEvent<Mesh>>,
-    mut queries: QuerySet<(
-        QueryState<&mut RenderPipelines, With<Handle<Mesh>>>,
-        QueryState<(Entity, &Handle<Mesh>, &mut RenderPipelines), Changed<Handle<Mesh>>>,
+    mut queries: ParamSet<(
+        Query<&mut RenderPipelines, With<Handle<Mesh>>>,
+        Query<(Entity, &Handle<Mesh>, &mut RenderPipelines), Changed<Handle<Mesh>>>,
     )>,
 ) {
     let mut changed_meshes = HashSet::default();
@@ -574,7 +574,7 @@ pub fn mesh_resource_provider_system(
 
             if let Some(mesh_entities) = state.mesh_entities.get_mut(changed_mesh_handle) {
                 for entity in mesh_entities.entities.iter() {
-                    if let Ok(render_pipelines) = queries.q0().get_mut(*entity) {
+                    if let Ok(render_pipelines) = queries.p0().get_mut(*entity) {
                         update_entity_mesh(
                             render_resource_context,
                             mesh,
@@ -588,7 +588,7 @@ pub fn mesh_resource_provider_system(
     }
 
     // handover buffers to pipeline
-    for (entity, handle, render_pipelines) in queries.q1().iter_mut() {
+    for (entity, handle, render_pipelines) in queries.p1().iter_mut() {
         let mesh_entities = state
             .mesh_entities
             .entry(handle.clone_weak())
