@@ -14,9 +14,9 @@ use bevy_asset::{Asset, AssetEvent, Assets, Handle, HandleId};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::QueryState,
+    prelude::Query,
     query::{Changed, Or, With},
-    system::{BoxedSystem, ConfigurableSystem, Local, QuerySet, RemovedComponents, Res, ResMut},
+    system::{BoxedSystem, ConfigurableSystem, Local, ParamSet, RemovedComponents, Res, ResMut},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -436,12 +436,9 @@ fn render_resources_node_system<T: RenderResources + Component>(
     mut entities_waiting_for_textures: Local<Vec<Entity>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     removed: RemovedComponents<T>,
-    mut queries: QuerySet<(
-        QueryState<
-            (Entity, &T, &Visible, &mut RenderPipelines),
-            Or<(Changed<T>, Changed<Visible>)>,
-        >,
-        QueryState<(Entity, &T, &Visible, &mut RenderPipelines)>,
+    mut queries: ParamSet<(
+        Query<(Entity, &T, &Visible, &mut RenderPipelines), Or<(Changed<T>, Changed<Visible>)>>,
+        Query<(Entity, &T, &Visible, &mut RenderPipelines)>,
     )>,
 ) {
     let state = state.deref_mut();
@@ -449,7 +446,7 @@ fn render_resources_node_system<T: RenderResources + Component>(
     let render_resource_context = &**render_resource_context;
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
-    if let Some((_, first, _, _)) = queries.q0().iter_mut().next() {
+    if let Some((_, first, _, _)) = queries.p0().iter_mut().next() {
         uniform_buffer_arrays.initialize(first, render_resource_context);
     }
 
@@ -459,7 +456,7 @@ fn render_resources_node_system<T: RenderResources + Component>(
 
     // handle entities that were waiting for texture loads on the last update
     for entity in std::mem::take(&mut *entities_waiting_for_textures) {
-        if let Ok((entity, uniforms, _visible, mut render_pipelines)) = queries.q1().get_mut(entity)
+        if let Ok((entity, uniforms, _visible, mut render_pipelines)) = queries.p1().get_mut(entity)
         {
             if !setup_uniform_texture_resources::<T>(
                 uniforms,
@@ -471,7 +468,7 @@ fn render_resources_node_system<T: RenderResources + Component>(
         }
     }
 
-    for (entity, uniforms, visible, mut render_pipelines) in queries.q0().iter_mut() {
+    for (entity, uniforms, visible, mut render_pipelines) in queries.p0().iter_mut() {
         if !visible.is_visible {
             continue;
         }
@@ -500,7 +497,7 @@ fn render_resources_node_system<T: RenderResources + Component>(
                 // if the buffer array was resized, write all entities to the new buffer, otherwise
                 // only write changes
                 if resized {
-                    for (entity, uniforms, visible, mut render_pipelines) in queries.q1().iter_mut()
+                    for (entity, uniforms, visible, mut render_pipelines) in queries.p1().iter_mut()
                     {
                         if !visible.is_visible {
                             continue;
@@ -516,7 +513,7 @@ fn render_resources_node_system<T: RenderResources + Component>(
                         );
                     }
                 } else {
-                    for (entity, uniforms, visible, mut render_pipelines) in queries.q0().iter_mut()
+                    for (entity, uniforms, visible, mut render_pipelines) in queries.p0().iter_mut()
                     {
                         if !visible.is_visible {
                             continue;
@@ -620,9 +617,9 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     removed_handles: RemovedComponents<Handle<T>>,
-    mut queries: QuerySet<(
-        QueryState<(&Handle<T>, &mut RenderPipelines), Changed<Handle<T>>>,
-        QueryState<&mut RenderPipelines, With<Handle<T>>>,
+    mut queries: ParamSet<(
+        Query<(&Handle<T>, &mut RenderPipelines), Changed<Handle<T>>>,
+        Query<&mut RenderPipelines, With<Handle<T>>>,
     )>,
 ) {
     let state = state.deref_mut();
@@ -752,7 +749,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
 
     // update removed entity asset mapping
     for entity in removed_handles.iter() {
-        if let Ok(mut render_pipelines) = queries.q1().get_mut(entity) {
+        if let Ok(mut render_pipelines) = queries.p1().get_mut(entity) {
             render_pipelines
                 .bindings
                 .remove_asset_with_type(TypeId::of::<T>())
@@ -760,7 +757,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
     }
 
     // update changed entity asset mapping
-    for (asset_handle, mut render_pipelines) in queries.q0().iter_mut() {
+    for (asset_handle, mut render_pipelines) in queries.p0().iter_mut() {
         render_pipelines
             .bindings
             .remove_asset_with_type(TypeId::of::<T>());
