@@ -1,6 +1,7 @@
 [[block]]
 struct View {
     view_proj: mat4x4<f32>;
+    projection: mat4x4<f32>;
     world_position: vec3<f32>;
 };
 [[group(0), binding(0)]]

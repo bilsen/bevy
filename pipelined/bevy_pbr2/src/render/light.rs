@@ -10,22 +10,9 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemState},
 };
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
-use bevy_render2::{
-    camera::CameraProjection,
-    color::Color,
-    mesh::Mesh,
-    render_asset::RenderAssets,
-    render_component::DynamicUniformIndex,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{
+use bevy_render2::{camera::CameraProjection, color::Color, mesh::Mesh, render_asset::RenderAssets, render_component::{ComponentUniforms, DynamicUniformIndex}, render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType}, render_phase::{
         Draw, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, TrackedRenderPass,
-    },
-    render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
-    shader::Shader,
-    texture::*,
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
-};
+    }, render_resource::*, renderer::{RenderContext, RenderDevice, RenderQueue}, shader::Shader, texture::*, view::{ExtractedView, ViewUniform}};
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
@@ -620,9 +607,9 @@ pub fn queue_shadow_view_bind_group(
     render_device: Res<RenderDevice>,
     shadow_shaders: Res<ShadowShaders>,
     mut light_meta: ResMut<LightMeta>,
-    view_uniforms: Res<ViewUniforms>,
+    view_uniforms: Res<ComponentUniforms<ViewUniform>>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+    if let Some(view_binding) = view_uniforms.binding() {
         light_meta.shadow_view_bind_group =
             Some(render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
@@ -758,7 +745,7 @@ pub struct DrawShadowMesh {
         SRes<TransformBindGroup>,
         SRes<RenderAssets<Mesh>>,
         SQuery<(Read<DynamicUniformIndex<MeshUniform>>, Read<Handle<Mesh>>)>,
-        SQuery<Read<ViewUniformOffset>>,
+        SQuery<Read<DynamicUniformIndex<ViewUniform>>>,
     )>,
 }
 
@@ -790,7 +777,7 @@ impl Draw<Shadow> for DrawShadowMesh {
                 .shadow_view_bind_group
                 .as_ref()
                 .unwrap(),
-            &[view_uniform_offset.offset],
+            &[view_uniform_offset.index()],
         );
 
         pass.set_bind_group(
