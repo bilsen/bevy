@@ -37,6 +37,9 @@ pub enum RenderStage {
     /// as short as possible to increase the "pipelining potential" for running the next frame
     /// while rendering the current frame.
     Extract,
+    
+    /// Filter and convert the extracted data into more suitable components for rendering. Also add previous frame state.
+    PrePrepare,
 
     /// Prepare render resources from extracted data.
     Prepare,
@@ -104,7 +107,9 @@ impl Plugin for RenderPlugin {
         // extract stage runs on the app world, but the buffers are applied to the render world
         extract_stage.set_apply_buffers(false);
         render_app
+        
             .add_stage(RenderStage::Extract, extract_stage)
+            .add_stage(RenderStage::PrePrepare, SystemStage::parallel())
             .add_stage(RenderStage::Prepare, SystemStage::parallel())
             .add_stage(RenderStage::Queue, SystemStage::parallel())
             .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
