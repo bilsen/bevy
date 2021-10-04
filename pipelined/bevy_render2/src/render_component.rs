@@ -36,26 +36,60 @@ pub trait ExtractComponent: Component {
 }
 
 /// Extracts assets into gpu-usable data
-pub struct UniformComponentPlugin<C>(PhantomData<fn() -> C>);
+pub struct UniformComponentPlugin<C, U = C> {
+    func: fn(&C) -> U,
+    _marker: PhantomData<fn() -> (C, U)>,
+}
 
-impl<C> Default for UniformComponentPlugin<C> {
+fn id_clone<C: Clone>(input: &C) -> C {
+    input.clone()
+}
+
+impl<C: Clone> Default for UniformComponentPlugin<C, C> {
     fn default() -> Self {
-        Self(PhantomData)
+        Self {
+            func: id_clone,
+            _marker: PhantomData,
+        }
     }
 }
 
-impl<C: Component + AsStd140 + Clone> Plugin for UniformComponentPlugin<C> {
+impl<C: Component, U: AsStd140 + Send + Sync + 'static> UniformComponentPlugin<C, U> {
+    pub fn new(func: fn(&C) -> U) -> Self {
+        Self {
+            func,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<C: Component, U: AsStd140 + Send + Sync + 'static> Plugin for UniformComponentPlugin<C, U> {
     fn build(&self, app: &mut App) {
+        let func = self.func.clone();
+
         app.sub_app(RenderApp)
-            .insert_resource(ComponentUniforms::<C>::default())
+            .insert_resource(ComponentUniforms::<U>::default())
             .add_system_to_stage(
                 RenderStage::Prepare,
-                prepare_uniform_components::<C>.system(),
+                move |mut commands: Commands,
+                      render_device: Res<RenderDevice>,
+                      render_queue: Res<RenderQueue>,
+                      mut component_uniforms: ResMut<ComponentUniforms<U>>,
+                      components: Query<(Entity, &C)>| {
+                    prepare_uniform_components(
+                        commands,
+                        render_device,
+                        render_queue,
+                        component_uniforms,
+                        components,
+                        func,
+                    );
+                },
             );
     }
 }
 
-pub struct ComponentUniforms<C: Component + AsStd140> {
+pub struct ComponentUniforms<C: AsStd140> {
     uniforms: DynamicUniformVec<C>,
 }
 
@@ -83,15 +117,14 @@ impl<C: Component + AsStd140> Default for ComponentUniforms<C> {
     }
 }
 
-fn prepare_uniform_components<C: Component>(
+fn prepare_uniform_components<C: Component, U: AsStd140 + Send + Sync + 'static>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut component_uniforms: ResMut<ComponentUniforms<C>>,
+    mut component_uniforms: ResMut<ComponentUniforms<U>>,
     components: Query<(Entity, &C)>,
-) where
-    C: AsStd140 + Clone,
-{
+    mapping: fn(&C) -> U,
+) {
     let len = components.iter().len();
     component_uniforms
         .uniforms
@@ -99,8 +132,8 @@ fn prepare_uniform_components<C: Component>(
     for (entity, component) in components.iter() {
         commands
             .get_or_spawn(entity)
-            .insert(DynamicUniformIndex::<C> {
-                index: component_uniforms.uniforms.push(component.clone()),
+            .insert(DynamicUniformIndex::<U> {
+                index: component_uniforms.uniforms.push(mapping(component)),
                 marker: PhantomData,
             });
     }
