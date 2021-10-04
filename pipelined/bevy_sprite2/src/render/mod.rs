@@ -12,13 +12,14 @@ use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
     render_asset::RenderAssets,
+    render_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     shader::Shader,
     texture::{BevyDefault, Image},
-    view::{ViewUniformOffset, ViewUniforms},
+    view::ViewUniform,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -326,14 +327,14 @@ pub fn queue_sprites(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     render_device: Res<RenderDevice>,
     mut sprite_meta: ResMut<SpriteMeta>,
-    view_uniforms: Res<ViewUniforms>,
+    view_uniforms: Res<ComponentUniforms<ViewUniform>>,
     sprite_shaders: Res<SpriteShaders>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     mut extracted_sprites: Query<(Entity, &ExtractedSprite)>,
     mut views: Query<&mut RenderPhase<Transparent2d>>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+    if let Some(view_binding) = view_uniforms.binding() {
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
                 binding: 0,
@@ -401,7 +402,7 @@ pub struct DrawSprite {
         SRes<SpriteShaders>,
         SRes<SpriteMeta>,
         SRes<ImageBindGroups>,
-        SQuery<Read<ViewUniformOffset>>,
+        SQuery<Read<DynamicUniformIndex<ViewUniform>>>,
         SQuery<Read<ExtractedSprite>>,
     )>,
 }
@@ -439,7 +440,7 @@ impl Draw<Transparent2d> for DrawSprite {
         pass.set_bind_group(
             0,
             sprite_meta.view_bind_group.as_ref().unwrap(),
-            &[view_uniform.offset],
+            &[view_uniform.index()],
         );
         pass.set_bind_group(
             1,
