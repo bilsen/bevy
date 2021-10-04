@@ -65,27 +65,25 @@ impl<C: Component, U: AsStd140 + Send + Sync + 'static> UniformComponentPlugin<C
 
 impl<C: Component, U: AsStd140 + Send + Sync + 'static> Plugin for UniformComponentPlugin<C, U> {
     fn build(&self, app: &mut App) {
-        let func = self.func.clone();
-
+        let func = self.func;
+        let system = move |commands: Commands,
+                           render_device: Res<RenderDevice>,
+                           render_queue: Res<RenderQueue>,
+                           component_uniforms: ResMut<ComponentUniforms<U>>,
+                           components: Query<(Entity, &C)>| {
+            prepare_uniform_components(
+                commands,
+                render_device,
+                render_queue,
+                component_uniforms,
+                components,
+                func,
+            );
+        };
         app.sub_app(RenderApp)
             .insert_resource(ComponentUniforms::<U>::default())
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                move |mut commands: Commands,
-                      render_device: Res<RenderDevice>,
-                      render_queue: Res<RenderQueue>,
-                      mut component_uniforms: ResMut<ComponentUniforms<U>>,
-                      components: Query<(Entity, &C)>| {
-                    prepare_uniform_components(
-                        commands,
-                        render_device,
-                        render_queue,
-                        component_uniforms,
-                        components,
-                        func,
-                    );
-                },
-            );
+            // TODO: add labels
+            .add_system_to_stage(RenderStage::Prepare, system);
     }
 }
 
