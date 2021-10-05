@@ -141,6 +141,11 @@ pub mod sprite2 {
     pub use bevy_sprite2::*;
 }
 
+#[cfg(feature = "bevy_taa")]
+pub mod taa {
+    //! Items for sprites, rects, texture atlases, etc.
+    pub use bevy_taa::*;
+}
 #[cfg(feature = "bevy_text")]
 pub mod text {
     //! Text drawing, styling, and font assets.

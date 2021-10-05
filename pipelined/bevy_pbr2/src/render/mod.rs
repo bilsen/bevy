@@ -10,17 +10,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::Mat4;
-use bevy_render2::{
-    mesh::Mesh,
-    render_asset::RenderAssets,
-    render_component::{ComponentUniforms, DynamicUniformIndex},
-    render_phase::{DrawFunctions, RenderCommand, RenderPhase, TrackedRenderPass},
-    render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    shader::Shader,
-    texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
-};
+use bevy_render2::{mesh::Mesh, render_asset::RenderAssets, render_component::{ComponentUniforms, DynamicUniformIndex}, render_phase::{DrawFunctions, RenderCommand, RenderPhase, TrackedRenderPass}, render_resource::*, renderer::{RenderDevice, RenderQueue}, shader::Shader, texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo}, view::{ExtractedView, ViewUniform}};
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use wgpu::{
@@ -495,7 +485,7 @@ pub fn queue_meshes(
     pbr_shaders: Res<PbrShaders>,
     shadow_shaders: Res<ShadowShaders>,
     light_meta: Res<LightMeta>,
-    view_uniforms: Res<ViewUniforms>,
+    view_uniforms: Res<ComponentUniforms<ViewUniform>>,
     render_materials: Res<RenderAssets<StandardMaterial>>,
     standard_material_meshes: Query<
         (Entity, &Handle<StandardMaterial>, &MeshUniform),
@@ -509,7 +499,7 @@ pub fn queue_meshes(
     )>,
 ) {
     if let (Some(view_binding), Some(light_binding)) = (
-        view_uniforms.uniforms.binding(),
+        view_uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
     ) {
         for (entity, view, view_lights, mut transparent_phase) in views.iter_mut() {
@@ -605,7 +595,7 @@ impl RenderCommand<Transparent3d> for SetPbrPipeline {
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
     type Param = SQuery<(
-        Read<ViewUniformOffset>,
+        Read<DynamicUniformIndex<ViewUniform>>,
         Read<ViewLights>,
         Read<PbrViewBindGroup>,
     )>;
@@ -620,7 +610,7 @@ impl<const I: usize> RenderCommand<Transparent3d> for SetMeshViewBindGroup<I> {
         pass.set_bind_group(
             I,
             &pbr_view_bind_group.value,
-            &[view_uniform.offset, view_lights.gpu_light_binding_index],
+            &[view_uniform.index(), view_lights.gpu_light_binding_index],
         );
     }
 }

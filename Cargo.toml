@@ -30,6 +30,7 @@ default = [
   "bevy_sprite2",
   "bevy_render2",
   "bevy_pbr2",
+  "bevy_taa",
   "bevy_winit",
   "render",
   "png",
@@ -62,6 +63,7 @@ bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_render2 = ["bevy_internal/bevy_render2"]
 bevy_sprite2 = ["bevy_internal/bevy_sprite2"]
 bevy_pbr2 = ["bevy_internal/bevy_pbr2"]
+bevy_taa = ["bevy_internal/bevy_taa"]
 bevy_gltf2 = ["bevy_internal/bevy_gltf2"]
 
 trace_chrome = ["bevy_internal/trace_chrome"]
@@ -159,6 +161,15 @@ path = "examples/3d/3d_scene.rs"
 [[example]]
 name = "3d_scene_pipelined"
 path = "examples/3d/3d_scene_pipelined.rs"
+
+
+[[example]]
+name = "taa"
+path = "examples/3d/taa.rs"
+
+[[example]]
+name = "taa2"
+path = "examples/3d/taa2.rs"
 
 [[example]]
 name = "many_cubes_pipelined"

@@ -81,6 +81,7 @@ bevy_ui = { path = "../bevy_ui", optional = true, version = "0.5.0" }
 bevy_wgpu = { path = "../bevy_wgpu", optional = true, version = "0.5.0" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.5.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.5.0" }
+bevy_taa = { path = "../../pipelined/bevy_taa", optional = true, version = "0.5.0"}
 
 
 [target.'cfg(target_os = "android")'.dependencies]
