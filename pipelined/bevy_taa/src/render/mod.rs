@@ -1,4 +1,5 @@
 pub mod nodes;
+pub mod resolve;
 
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
