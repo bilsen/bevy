@@ -15,11 +15,15 @@ fn main() {
         .add_plugin(TaaPlugin)
         .add_startup_system(setup)
         .add_system(movement)
+        .add_system(spin)
+        .add_system(movement_camera)
         // .add_system(animate_light_direction)
         .run();
 }
 
+struct Spinning;
 struct Movable;
+struct MovableCamera;
 
 /// set up a simple 3D scene
 fn setup(
@@ -65,7 +69,7 @@ fn setup(
         ..Default::default()
     });
 
-    // cube
+    // spinning cube
     commands
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -76,7 +80,7 @@ fn setup(
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..Default::default()
         })
-        .insert(Movable);
+        .insert(Movable).insert(Spinning);
     // sphere
     commands
         .spawn_bundle(PbrBundle {
@@ -208,7 +212,7 @@ fn setup(
     commands.spawn_bundle(PerspectiveCameraBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
-    });
+    }).insert(MovableCamera);
 }
 
 // fn animate_light_direction(
@@ -220,7 +224,6 @@ fn setup(
 //     }
 // }
 fn movement(
-    input: Res<Input<KeyCode>>,
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Movable>>,
 ) {
@@ -230,5 +233,28 @@ fn movement(
 
 
         transform.translation += time.delta_seconds() * 2.0 * direction;
+    }
+}
+
+fn spin(
+    time: Res<Time>,
+    mut query: Query<&mut Transform, With<Spinning>>,
+) {
+    for mut transform in query.iter_mut() {
+
+        transform.rotate(Quat::from_axis_angle(Vec3::Y, 5.0*time.delta_seconds()));
+    }
+}
+
+fn movement_camera(
+    input: Res<Input<KeyCode>>,
+    time: Res<Time>,
+    mut query: Query<&mut Transform, With<MovableCamera>>) {
+    for mut transform in query.iter_mut() {
+        let t = time.seconds_since_startup()/3.0;
+        let direction = Vec3::new(t.cos() as f32, 0.0, t.sin() as f32);
+
+
+        transform.translation += -time.delta_seconds() * 2.0 * direction;
     }
 }

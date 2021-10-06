@@ -298,7 +298,6 @@ pub fn queue_velocity(
         .get_id::<DrawTaaVelocity>()
         .unwrap();
 
-    let mut num_queued = 0;
     for (view, mut velocity_phase) in views.iter_mut() {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
@@ -308,10 +307,8 @@ pub fn queue_velocity(
                 distance: view_row_2.dot(mesh_uniform.transform.col(3)),
                 draw_velocity,
             });
-            num_queued += 1;
         }
     }
-    println!("Num queued {}", num_queued);
 }
 
 pub fn extract_velocity_camera_phases(mut commands: Commands, active_cameras: Res<ActiveCameras>) {
@@ -345,8 +342,8 @@ impl PhaseItem for Velocity {
 
 pub type DrawTaaVelocity = (
     SetVelocityPipeline,
-    SetTaaMeshBindGroup<0>,
-    SetTaaViewBindGroup<1>,
+    SetTaaViewBindGroup<0>,
+    SetTaaMeshBindGroup<1>,
     DrawMesh,
 );
 
