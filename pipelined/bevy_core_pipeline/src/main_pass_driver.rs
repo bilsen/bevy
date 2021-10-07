@@ -11,7 +11,7 @@ pub struct Draw3dGraphId(pub RenderGraphId);
 
 
 pub fn main_pass_driver_node_system(
-    In((mut render_context, graph)): In<NodeInput>,
+    In((command_encoder, _graph)): In<NodeInput>,
     extracted_camera_names: Res<ExtractedCameraNames>,
     extracted_windows: Res<ExtractedWindows>,
     extracted_cameras: Query<&ExtractedCamera>,
@@ -51,6 +51,6 @@ pub fn main_pass_driver_node_system(
         );
     }
 
-    Ok((render_context, sub_graph_runs))
+    Ok((command_encoder, sub_graph_runs))
 }
 

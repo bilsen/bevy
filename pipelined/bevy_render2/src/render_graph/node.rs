@@ -12,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
+use wgpu::CommandEncoder;
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 
@@ -31,8 +32,8 @@ impl NodeId {
     }
 }
 
-pub type NodeResult = Result<(RenderContext, RunSubGraphs), NodeRunError>;
-pub type NodeInput = (RenderContext, GraphContext);
+pub type NodeResult = Result<(CommandEncoder, RunSubGraphs), NodeRunError>;
+pub type NodeInput = (CommandEncoder, GraphContext);
 
 pub type BoxedNode = Box<dyn System<In = NodeInput, Out = NodeResult>>;
 

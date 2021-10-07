@@ -670,7 +670,7 @@ impl PhaseItem for Shadow {
 
 
 pub fn shadow_pass_node_system(
-    In((mut render_context, graph)): In<NodeInput>,
+    In((mut command_encoder, graph)): In<NodeInput>,
     main_view_query: Query<&ViewLights>,
     view_light_query: Query<(&ViewLight, &RenderPhase<Shadow>)>,
     world: &World,
@@ -698,8 +698,7 @@ pub fn shadow_pass_node_system(
 
             let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
 
-            let render_pass = render_context
-                .command_encoder
+            let render_pass = command_encoder
                 .begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
@@ -710,7 +709,7 @@ pub fn shadow_pass_node_system(
         }
     }
 
-    Ok((render_context, Default::default()))
+    Ok((command_encoder, Default::default()))
 }
 
 

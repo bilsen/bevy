@@ -367,19 +367,19 @@ pub fn queue_sprites(
 
 // TODO: this logic can be moved to prepare_sprites once wgpu::Queue is exposed directly
 pub fn sprite_node_system(
-    In((mut render_context, _graph)): In<NodeInput>,
+    In((mut command_encoder, _graph)): In<NodeInput>,
     sprite_meta: Res<SpriteMeta>
 ) -> NodeResult 
 {
     {
         sprite_meta
             .vertices
-            .write_to_buffer(&mut render_context.command_encoder);
+            .write_to_buffer(&mut command_encoder);
         sprite_meta
             .indices
-            .write_to_buffer(&mut render_context.command_encoder);
+            .write_to_buffer(&mut command_encoder);
     }
-    Ok((render_context, Default::default()))
+    Ok((command_encoder, Default::default()))
 }
 
 pub struct DrawSprite {

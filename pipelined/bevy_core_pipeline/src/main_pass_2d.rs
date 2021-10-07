@@ -80,7 +80,7 @@ use bevy_render2::{render_graph::{NodeInput, NodeResult, NodeRunError, GraphCont
 
 
 pub fn main_pass_2d_node(
-    In((mut render_context, graph)): In<NodeInput>,
+    In((mut command_encoder, graph)): In<NodeInput>,
     clear_color: Res<ClearColor>,
     world: &World,
     transparent: Query<&RenderPhase<Transparent2d>>
@@ -109,8 +109,7 @@ pub fn main_pass_2d_node(
         .get(view_entity)
         .expect("view entity should exist");
 
-    let render_pass = render_context
-        .command_encoder
+    let render_pass = command_encoder
         .begin_render_pass(&pass_descriptor);
 
     let mut draw_functions = draw_functions.write();
@@ -122,5 +121,5 @@ pub fn main_pass_2d_node(
         }
     }
 
-    Ok((render_context, Default::default()))
+    Ok((command_encoder, Default::default()))
 }

@@ -96,8 +96,6 @@ impl RenderGraph {
         }
     }
     pub fn add_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: impl IntoSystem<NodeInput, NodeResult, T>) -> NodeId {
-        println!("adding nodes");
-        
         let id = NodeId::new();
         let name = name.into();
         let mut node_state = NodeState::new(id, Box::new(node.system()));

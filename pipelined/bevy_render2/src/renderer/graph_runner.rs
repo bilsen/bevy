@@ -5,6 +5,7 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 use smallvec::{smallvec, SmallVec};
+use wgpu::CommandEncoder;
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
@@ -100,39 +101,36 @@ impl RenderGraphRunner {
         // Resource RenderGraphs is temporarily removed from world. this is to disallow any funky cross-system mutation from occuring.
         render_graphs: &mut RenderGraphs,
         graph_id: RenderGraphId,
-        render_device: RenderDevice,
-        queue: RenderQueue,
     ) -> Result<(), RenderGraphRunnerError> {
 
 
+        
         self.initialize_nodes(world, render_graphs);
         self.update_archetypes(world, render_graphs);
+        
+        let render_device = world.get_resource::<RenderDevice>().unwrap().clone();
+        let queue = world.get_resource::<RenderQueue>().unwrap().clone();
 
 
-
-        let command_encoder =
+        let mut command_encoder =
             render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-        let mut render_context = RenderContext {
-            render_device,
-            command_encoder,
-        };
-
+    
         {
             let span = info_span!("run_graph");
             let _guard = span.enter();
-            render_context = self.run_graph(
+            command_encoder = self.run_graph(
                 world,
                 render_graphs,
                 &graph_id,
-                None,
-                render_context,
+                Some("Main graph".into()),
+                command_encoder,
                 GraphContext::default(),
-            )?;
+            );
         }
         {
             let span = info_span!("submit_graph_commands");
             let _guard = span.enter();
-            queue.submit(vec![render_context.command_encoder.finish()]);
+            queue.submit(vec![command_encoder.finish()]);
         }
         Ok(())
     }
@@ -143,9 +141,9 @@ impl RenderGraphRunner {
         render_graphs: &mut RenderGraphs,
         graph_id: &RenderGraphId,
         graph_name: Option<Cow<'static, str>>,
-        mut render_context: RenderContext,
+        mut command_encoder: CommandEncoder,
         graph_context: GraphContext,
-    ) -> Result<RenderContext, RenderGraphRunnerError> {
+    ) -> CommandEncoder {
         debug!("-----------------");
         debug!("Begin Graph Run: {:?}", graph_name);
         debug!("-----------------");
@@ -192,22 +190,21 @@ impl RenderGraphRunner {
             // Run node TODO: Error handling, destructuring assignments
             let output = node_state
                 .system
-                .run((render_context, graph_context.clone()), world)
+                .run((command_encoder, graph_context.clone()), world)
                 .unwrap();
 
             let sub_graph_runs = output.1;
-            render_context = output.0;
+            command_encoder = output.0;
             for run_sub_graph in sub_graph_runs.drain() {
                 
-                render_context = self.run_graph(
+                command_encoder = self.run_graph(
                     world,
                     render_graphs,
                     &run_sub_graph.id,
                     None,
-                    render_context,
+                    command_encoder,
                     run_sub_graph.context,
-                )
-                .unwrap();
+                );
             }
             finished_nodes.insert(node_state_id);
             for output_node_id in get_graph_mut(render_graphs, graph_id).iter_dependants(&node_state_id) {
@@ -219,7 +216,7 @@ impl RenderGraphRunner {
         }
 
         debug!("finish graph: {:?}", graph_name);
-        Ok(render_context)
+        command_encoder
     }
 }
 
