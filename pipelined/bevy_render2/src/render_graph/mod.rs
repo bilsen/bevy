@@ -1,14 +1,14 @@
 mod context;
 mod edge;
 mod graph;
-mod node;
 mod graph_slot;
+mod node;
 
 pub use context::*;
 pub use edge::*;
 pub use graph::*;
-pub use node::*;
 pub use graph_slot::*;
+pub use node::*;
 
 use thiserror::Error;
 

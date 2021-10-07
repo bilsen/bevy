@@ -9,7 +9,17 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemState},
 };
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
-use bevy_render2::{mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues}, render_asset::RenderAssets, render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError}, render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass}, render_resource::*, renderer::{RenderContext, RenderDevice}, shader::Shader, texture::{BevyDefault, Image}, view::{ViewUniformOffset, ViewUniforms}};
+use bevy_render2::{
+    mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
+    render_asset::RenderAssets,
+    render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError},
+    render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_resource::*,
+    renderer::{RenderContext, RenderDevice},
+    shader::Shader,
+    texture::{BevyDefault, Image},
+    view::{ViewUniformOffset, ViewUniforms},
+};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
@@ -368,16 +378,11 @@ pub fn queue_sprites(
 // TODO: this logic can be moved to prepare_sprites once wgpu::Queue is exposed directly
 pub fn sprite_node_system(
     In((mut command_encoder, _graph)): In<NodeInput>,
-    sprite_meta: Res<SpriteMeta>
-) -> NodeResult 
-{
+    sprite_meta: Res<SpriteMeta>,
+) -> NodeResult {
     {
-        sprite_meta
-            .vertices
-            .write_to_buffer(&mut command_encoder);
-        sprite_meta
-            .indices
-            .write_to_buffer(&mut command_encoder);
+        sprite_meta.vertices.write_to_buffer(&mut command_encoder);
+        sprite_meta.indices.write_to_buffer(&mut command_encoder);
     }
     Ok((command_encoder, Default::default()))
 }

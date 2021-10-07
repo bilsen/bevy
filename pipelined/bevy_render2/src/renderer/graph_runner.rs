@@ -5,9 +5,9 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 use smallvec::{smallvec, SmallVec};
-use wgpu::CommandEncoder;
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
+use wgpu::CommandEncoder;
 
 use crate::{
     render_graph::{
@@ -18,7 +18,6 @@ use crate::{
 };
 
 use super::RenderQueue;
-
 
 #[derive(Error, Debug)]
 pub enum RenderGraphRunnerError {
@@ -45,48 +44,42 @@ pub enum RenderGraphRunnerError {
     },
 }
 
-
 pub(crate) struct RenderGraphRunner {
     archetype_generation: ArchetypeGeneration,
-    initialized_nodes: HashSet<NodeId>
+    initialized_nodes: HashSet<NodeId>,
 }
 
 impl Default for RenderGraphRunner {
     fn default() -> Self {
         Self {
             archetype_generation: ArchetypeGeneration::initial(),
-            initialized_nodes: HashSet::default()
+            initialized_nodes: HashSet::default(),
         }
     }
 }
 
 impl RenderGraphRunner {
     fn update_archetypes(&mut self, world: &mut World, graphs: &mut RenderGraphs) {
-
-
-
-        
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype in archetypes.archetypes()[archetype_index_range].iter() {
-           
-            let node_iterator = graphs.iter_graphs_mut().flat_map(|graph| graph.iter_nodes_mut());
+            let node_iterator = graphs
+                .iter_graphs_mut()
+                .flat_map(|graph| graph.iter_nodes_mut());
             for node in node_iterator {
-                
                 let system = node.system_mut();
                 system.new_archetype(archetype);
-                
             }
         }
     }
 
     fn initialize_nodes(&mut self, world: &mut World, graphs: &mut RenderGraphs) {
-        
-        
-        let node_iterator = graphs.iter_graphs_mut().flat_map(|graph| graph.iter_nodes_mut());
+        let node_iterator = graphs
+            .iter_graphs_mut()
+            .flat_map(|graph| graph.iter_nodes_mut());
         for node in node_iterator {
             if !self.initialized_nodes.contains(&node.id) {
                 node.system_mut().initialize(world);
@@ -102,19 +95,15 @@ impl RenderGraphRunner {
         render_graphs: &mut RenderGraphs,
         graph_id: RenderGraphId,
     ) -> Result<(), RenderGraphRunnerError> {
-
-
-        
         self.initialize_nodes(world, render_graphs);
         self.update_archetypes(world, render_graphs);
-        
+
         let render_device = world.get_resource::<RenderDevice>().unwrap().clone();
         let queue = world.get_resource::<RenderQueue>().unwrap().clone();
 
-
         let mut command_encoder =
             render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-    
+
         {
             let span = info_span!("run_graph");
             let _guard = span.enter();
@@ -148,7 +137,6 @@ impl RenderGraphRunner {
         debug!("Begin Graph Run: {:?}", graph_name);
         debug!("-----------------");
 
-
         // Queue up nodes without inputs, which can be run immediately
         let mut node_queue: VecDeque<NodeId> = get_graph_mut(render_graphs, graph_id)
             .iter_nodes()
@@ -159,15 +147,10 @@ impl RenderGraphRunner {
         let mut finished_nodes: HashSet<NodeId> = HashSet::default();
 
         'handle_node: while let Some(node_state_id) = node_queue.pop_front() {
-            
-
-
-
             // skip nodes that are already processed
             if finished_nodes.contains(&node_state_id) {
                 continue;
             }
-
 
             // Check if all dependencies have finished running
             for dependency_node in get_graph_mut(render_graphs, graph_id)
@@ -177,7 +160,6 @@ impl RenderGraphRunner {
                 .dependencies
                 .iter()
             {
-                
                 if !finished_nodes.contains(&dependency_node) {
                     node_queue.push_back(node_state_id);
                     continue 'handle_node;
@@ -196,7 +178,6 @@ impl RenderGraphRunner {
             let sub_graph_runs = output.1;
             command_encoder = output.0;
             for run_sub_graph in sub_graph_runs.drain() {
-                
                 command_encoder = self.run_graph(
                     world,
                     render_graphs,
@@ -207,12 +188,11 @@ impl RenderGraphRunner {
                 );
             }
             finished_nodes.insert(node_state_id);
-            for output_node_id in get_graph_mut(render_graphs, graph_id).iter_dependants(&node_state_id) {
-                
+            for output_node_id in
+                get_graph_mut(render_graphs, graph_id).iter_dependants(&node_state_id)
+            {
                 node_queue.push_back(*output_node_id);
             }
-
-
         }
 
         debug!("finish graph: {:?}", graph_name);

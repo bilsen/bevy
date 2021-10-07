@@ -1,16 +1,21 @@
 use crate::{ClearColor, Transparent3d};
 use bevy_ecs::prelude::*;
-use bevy_render2::{render_graph::{NodeInput, NodeResult, NodeRunError, GraphContext, SlotInfo, SlotType}, render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass}, render_resource::{
+use bevy_render2::{
+    render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, SlotInfo, SlotType},
+    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
-    }, renderer::RenderContext, view::ExtractedView};
-
+    },
+    renderer::RenderContext,
+    view::ExtractedView,
+};
 
 pub fn main_pass_3d_node(
     In((mut command_encoder, graph)): In<NodeInput>,
     clear_color: Res<ClearColor>,
     world: &World,
-    transparent: Query<&RenderPhase<Transparent3d>>
+    transparent: Query<&RenderPhase<Transparent3d>>,
 ) -> NodeResult {
     let color_attachment_texture = graph.get_input_texture("color_attachment");
     let depth_texture = graph.get_input_texture("depth");
@@ -43,8 +48,7 @@ pub fn main_pass_3d_node(
         .get(view_entity)
         .expect("view entity should exist");
 
-    let render_pass = command_encoder
-        .begin_render_pass(&pass_descriptor);
+    let render_pass = command_encoder.begin_render_pass(&pass_descriptor);
     let mut draw_functions = draw_functions.write();
     {
         let mut tracked_pass = TrackedRenderPass::new(render_pass);

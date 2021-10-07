@@ -10,9 +10,22 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemState},
 };
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
-use bevy_render2::{camera::CameraProjection, color::Color, mesh::Mesh, render_asset::RenderAssets, render_component::DynamicUniformIndex, render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, SlotInfo, SlotType}, render_phase::{
+use bevy_render2::{
+    camera::CameraProjection,
+    color::Color,
+    mesh::Mesh,
+    render_asset::RenderAssets,
+    render_component::DynamicUniformIndex,
+    render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, SlotInfo, SlotType},
+    render_phase::{
         Draw, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, TrackedRenderPass,
-    }, render_resource::*, renderer::{RenderContext, RenderDevice, RenderQueue}, shader::Shader, texture::*, view::{ExtractedView, ViewUniformOffset, ViewUniforms}};
+    },
+    render_resource::*,
+    renderer::{RenderContext, RenderDevice, RenderQueue},
+    shader::Shader,
+    texture::*,
+    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
+};
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
@@ -668,7 +681,6 @@ impl PhaseItem for Shadow {
     }
 }
 
-
 pub fn shadow_pass_node_system(
     In((mut command_encoder, graph)): In<NodeInput>,
     main_view_query: Query<&ViewLights>,
@@ -678,11 +690,8 @@ pub fn shadow_pass_node_system(
     let view_entity = *graph.get_input_entity("view");
     if let Ok(view_lights) = main_view_query.get(view_entity) {
         for view_light_entity in view_lights.lights.iter().copied() {
-            let (view_light, shadow_phase) =
-                view_light_query
-                .get(view_light_entity)
-                .unwrap();
-            
+            let (view_light, shadow_phase) = view_light_query.get(view_light_entity).unwrap();
+
             let pass_descriptor = RenderPassDescriptor {
                 label: Some(&view_light.pass_name),
                 color_attachments: &[],
@@ -698,8 +707,7 @@ pub fn shadow_pass_node_system(
 
             let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
 
-            let render_pass = command_encoder
-                .begin_render_pass(&pass_descriptor);
+            let render_pass = command_encoder.begin_render_pass(&pass_descriptor);
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
             for item in shadow_phase.items.iter() {
@@ -711,7 +719,6 @@ pub fn shadow_pass_node_system(
 
     Ok((command_encoder, Default::default()))
 }
-
 
 pub struct DrawShadowMesh {
     params: SystemState<(

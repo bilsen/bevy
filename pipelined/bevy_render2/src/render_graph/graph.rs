@@ -30,7 +30,7 @@ pub struct MainRenderGraphId(pub RenderGraphId);
 #[derive(Default)]
 pub struct RenderGraphs {
     graphs: HashMap<RenderGraphId, RenderGraph>,
-    names: HashMap<&'static str, RenderGraphId>
+    names: HashMap<&'static str, RenderGraphId>,
 }
 
 pub trait IntoGraphId {
@@ -45,7 +45,10 @@ impl<'a> IntoGraphId for &'a RenderGraphId {
 
 impl IntoGraphId for &'static str {
     fn into_id(&self, graphs: &RenderGraphs) -> RenderGraphId {
-        *graphs.names.get(self).expect("No such name in render graph")
+        *graphs
+            .names
+            .get(self)
+            .expect("No such name in render graph")
     }
 }
 
@@ -58,17 +61,16 @@ impl RenderGraphs {
     }
 
     pub fn insert(&mut self, name: impl Into<&'static str>, graph: RenderGraph) {
-        
-        let id=graph.id;
+        let id = graph.id;
         self.graphs.insert(id, graph);
         self.names.insert(name.into(), id);
     }
 
-    pub fn iter_graphs(&self) -> impl Iterator<Item=&RenderGraph> {
+    pub fn iter_graphs(&self) -> impl Iterator<Item = &RenderGraph> {
         self.graphs.iter().map(|(_key, graph)| graph)
     }
 
-    pub fn iter_graphs_mut(&mut self) -> impl Iterator<Item=&mut RenderGraph> {
+    pub fn iter_graphs_mut(&mut self) -> impl Iterator<Item = &mut RenderGraph> {
         self.graphs.iter_mut().map(|(_key, graph)| graph)
     }
 }
@@ -95,7 +97,11 @@ impl RenderGraph {
             node.system.apply_buffers(world)
         }
     }
-    pub fn add_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: impl IntoSystem<NodeInput, NodeResult, T>) -> NodeId {
+    pub fn add_node<T>(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+        node: impl IntoSystem<NodeInput, NodeResult, T>,
+    ) -> NodeId {
         let id = NodeId::new();
         let name = name.into();
         let mut node_state = NodeState::new(id, Box::new(node.system()));
@@ -158,16 +164,12 @@ impl RenderGraph {
         Ok(())
     }
 
-    pub fn iter_dependants(&self, id: &NodeId) -> impl Iterator<Item=&NodeId> {
-        
+    pub fn iter_dependants(&self, id: &NodeId) -> impl Iterator<Item = &NodeId> {
         self.nodes.get(id).unwrap().edges.iter_dependants()
-        
     }
 
-    pub fn iter_dependencies(&self, id: &NodeId) -> impl Iterator<Item=&NodeId> {
-        
+    pub fn iter_dependencies(&self, id: &NodeId) -> impl Iterator<Item = &NodeId> {
         self.nodes.get(id).unwrap().edges.iter_dependencies()
-        
     }
 
     pub fn iter_nodes(&self) -> impl Iterator<Item = &NodeState> {

@@ -1,14 +1,20 @@
 use crate::ViewDepthTexture;
-use bevy_ecs::{system::Res, world::World};
-use bevy_render2::{camera::{CameraPlugin, ExtractedCamera, ExtractedCameraNames}, render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, RenderGraph, RenderGraphId, RunSubGraphs, SlotValue}, renderer::RenderContext, view::ExtractedWindows};
 use bevy_ecs::prelude::*;
+use bevy_ecs::{system::Res, world::World};
+use bevy_render2::{
+    camera::{CameraPlugin, ExtractedCamera, ExtractedCameraNames},
+    render_graph::{
+        GraphContext, NodeInput, NodeResult, NodeRunError, RenderGraph, RenderGraphId,
+        RunSubGraphs, SlotValue,
+    },
+    renderer::RenderContext,
+    view::ExtractedWindows,
+};
 
 use bevy_ecs::system::In;
 
-
 pub struct Draw2dGraphId(pub RenderGraphId);
 pub struct Draw3dGraphId(pub RenderGraphId);
-
 
 pub fn main_pass_driver_node_system(
     In((command_encoder, _graph)): In<NodeInput>,
@@ -17,10 +23,8 @@ pub fn main_pass_driver_node_system(
     extracted_cameras: Query<&ExtractedCamera>,
     depth_textures: Query<&ViewDepthTexture>,
     draw_2d_id: Res<Draw2dGraphId>,
-    draw_3d_id: Res<Draw3dGraphId>
-
+    draw_3d_id: Res<Draw3dGraphId>,
 ) -> NodeResult {
-
     let mut sub_graph_runs = RunSubGraphs::default();
 
     if let Some(camera_2d) = extracted_camera_names.entities.get(CameraPlugin::CAMERA_2D) {
@@ -31,7 +35,10 @@ pub fn main_pass_driver_node_system(
             draw_2d_id.0,
             vec![
                 ("view", SlotValue::Entity(*camera_2d)),
-                ("color_attachment", SlotValue::TextureView(swap_chain_texture))
+                (
+                    "color_attachment",
+                    SlotValue::TextureView(swap_chain_texture),
+                ),
             ],
         );
     }
@@ -45,7 +52,10 @@ pub fn main_pass_driver_node_system(
             draw_3d_id.0,
             vec![
                 ("view", SlotValue::Entity(*camera_3d)),
-                ("color_attachment", SlotValue::TextureView(swap_chain_texture)),
+                (
+                    "color_attachment",
+                    SlotValue::TextureView(swap_chain_texture),
+                ),
                 ("depth", SlotValue::TextureView(depth_texture.view.clone())),
             ],
         );
@@ -53,4 +63,3 @@ pub fn main_pass_driver_node_system(
 
     Ok((command_encoder, sub_graph_runs))
 }
-

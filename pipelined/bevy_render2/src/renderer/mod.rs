@@ -11,22 +11,16 @@ use std::sync::Arc;
 use wgpu::{BackendBit, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 
 pub fn render_system(world: &mut World) {
-    // Remove render graphs from world while executing, to allow seperate mutable references for 
+    // Remove render graphs from world while executing, to allow seperate mutable references for
     // world and RenderGraph
     world.resource_scope(|world, mut graphs: Mut<RenderGraphs>| {
         world.resource_scope(|world, mut graph_runner: Mut<RenderGraphRunner>| {
-            
             let main_graph_id = world.get_resource::<MainRenderGraphId>().unwrap().0;
-            graph_runner.run_and_submit(
-                world,
-                &mut graphs,
-                main_graph_id
-            )
-            .unwrap();
-    
-            graphs.get_mut(&main_graph_id).unwrap().update(world);
+            graph_runner
+                .run_and_submit(world, &mut graphs, main_graph_id)
+                .unwrap();
 
-            
+            graphs.get_mut(&main_graph_id).unwrap().update(world);
         });
     });
 }

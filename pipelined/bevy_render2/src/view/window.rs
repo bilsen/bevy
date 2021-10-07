@@ -113,8 +113,6 @@ pub fn prepare_windows(
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
 ) {
-    
-    
     let window_surfaces = window_surfaces.deref_mut();
     for window in windows.windows.values_mut() {
         let surface = window_surfaces

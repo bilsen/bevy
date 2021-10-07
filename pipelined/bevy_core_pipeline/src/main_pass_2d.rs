@@ -1,8 +1,12 @@
-
-
 use crate::{ClearColor, Transparent2d, Transparent3d};
 use bevy_ecs::prelude::*;
-use bevy_render2::{render_graph::{NodeInput, NodeResult, NodeRunError, GraphContext, SlotInfo, SlotType}, render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass}, render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor}, renderer::RenderContext, view::ExtractedView};
+use bevy_render2::{
+    render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, SlotInfo, SlotType},
+    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
+    renderer::RenderContext,
+    view::ExtractedView,
+};
 
 // pub struct MainPass2dNode {
 //     query: QueryState<&'static RenderPhase<Transparent2d>, With<ExtractedView>>,
@@ -76,14 +80,11 @@ use bevy_render2::{render_graph::{NodeInput, NodeResult, NodeRunError, GraphCont
 //     }
 // }
 
-
-
-
 pub fn main_pass_2d_node(
     In((mut command_encoder, graph)): In<NodeInput>,
     clear_color: Res<ClearColor>,
     world: &World,
-    transparent: Query<&RenderPhase<Transparent2d>>
+    transparent: Query<&RenderPhase<Transparent2d>>,
 ) -> NodeResult {
     let color_attachment_texture = graph.get_input_texture("color_attachment");
     let clear_color = world.get_resource::<ClearColor>().unwrap();
@@ -109,8 +110,7 @@ pub fn main_pass_2d_node(
         .get(view_entity)
         .expect("view entity should exist");
 
-    let render_pass = command_encoder
-        .begin_render_pass(&pass_descriptor);
+    let render_pass = command_encoder.begin_render_pass(&pass_descriptor);
 
     let mut draw_functions = draw_functions.write();
     {

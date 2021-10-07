@@ -12,9 +12,9 @@ use bevy_ecs::{
 };
 use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
-use wgpu::CommandEncoder;
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
+use wgpu::CommandEncoder;
 
 use super::{GraphContext, RunSubGraph, RunSubGraphs};
 
@@ -37,10 +37,9 @@ pub type NodeInput = (CommandEncoder, GraphContext);
 
 pub type BoxedNode = Box<dyn System<In = NodeInput, Out = NodeResult>>;
 
+pub trait NodeSystem: System<In = NodeInput, Out = NodeResult> {}
 
-pub trait NodeSystem: System<In = NodeInput, Out = NodeResult> {  }
-
-impl<T: System<In = NodeInput, Out = NodeResult>> NodeSystem for T {  }
+impl<T: System<In = NodeInput, Out = NodeResult>> NodeSystem for T {}
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum NodeRunError {
@@ -58,10 +57,7 @@ pub struct Edges {
     pub dependants: Vec<NodeId>,
 }
 
-
 impl Edges {
-
-
     pub(crate) fn add_dependency(&mut self, node: NodeId) {
         self.dependencies.push(node);
     }
@@ -144,7 +140,6 @@ impl From<NodeId> for NodeLabel {
         NodeLabel::Id(value)
     }
 }
-
 
 pub fn empty_node_system(In((render_context, _graph_context)): In<NodeInput>) -> NodeResult {
     Ok((render_context, Default::default()))

@@ -10,7 +10,19 @@ use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_render2::{RenderApp, RenderStage, RenderWorld, camera::{ActiveCameras, CameraPlugin}, color::Color, render_graph::{MainRenderGraphId, RenderGraph, RenderGraphs, SlotInfo, SlotType, empty_node_system}, render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase}, render_resource::*, renderer::RenderDevice, texture::{Image, TextureCache}, view::ExtractedView};
+use bevy_render2::{
+    camera::{ActiveCameras, CameraPlugin},
+    color::Color,
+    render_graph::{
+        empty_node_system, MainRenderGraphId, RenderGraph, RenderGraphs, SlotInfo, SlotType,
+    },
+    render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
+    render_resource::*,
+    renderer::RenderDevice,
+    texture::{Image, TextureCache},
+    view::ExtractedView,
+    RenderApp, RenderStage, RenderWorld,
+};
 
 /// Resource that configures the clear color
 #[derive(Clone, Debug)]
@@ -75,9 +87,8 @@ impl Plugin for CorePipelinePlugin {
 
         let MainRenderGraphId(main_graph_id_ref) = render_app.world.get_resource().unwrap();
         let main_graph_id = main_graph_id_ref.clone();
-        
-        let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
 
+        let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
 
         let mut draw_2d_graph = RenderGraph::default();
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, main_pass_2d_node);
@@ -93,10 +104,16 @@ impl Plugin for CorePipelinePlugin {
 
         main_graph.add_node(node::MAIN_PASS_DRIVER, main_pass_driver_node_system);
         main_graph.add_node(node::MAIN_PASS_DEPENDENCIES, empty_node_system);
-        main_graph.add_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER).unwrap();
-        
-        render_app.world.insert_resource(Draw2dGraphId(draw_2d_graph_id));
-        render_app.world.insert_resource(Draw3dGraphId(draw_3d_graph_id));
+        main_graph
+            .add_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
+            .unwrap();
+
+        render_app
+            .world
+            .insert_resource(Draw2dGraphId(draw_2d_graph_id));
+        render_app
+            .world
+            .insert_resource(Draw3dGraphId(draw_3d_graph_id));
     }
 }
 

@@ -16,17 +16,15 @@ pub struct RunSubGraph {
 
 #[derive(Default)]
 pub struct RunSubGraphs {
-    commands: Vec<RunSubGraph>
+    commands: Vec<RunSubGraph>,
 }
 
 impl RunSubGraphs {
     pub fn run(&mut self, id: RenderGraphId, inputs: impl Into<GraphContext>) {
-        self.commands.push(
-            RunSubGraph {
-                id,
-                context: inputs.into()
-            }
-        );
+        self.commands.push(RunSubGraph {
+            id,
+            context: inputs.into(),
+        });
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &RunSubGraph> {
@@ -53,7 +51,9 @@ impl GraphContext {
     }
 
     pub fn get_input_entity(&self, name: impl Into<&'static str>) -> &Entity {
-        if let SlotValue::Entity(entity) = self.inputs.get(name.into()).expect("No input value found") {
+        if let SlotValue::Entity(entity) =
+            self.inputs.get(name.into()).expect("No input value found")
+        {
             return entity;
         } else {
             panic!("Wrong input type")
@@ -61,7 +61,9 @@ impl GraphContext {
     }
 
     pub fn get_input_texture(&self, name: impl Into<&'static str>) -> &TextureView {
-        if let SlotValue::TextureView(texture_view) = self.inputs.get(name.into()).expect("No input value found") {
+        if let SlotValue::TextureView(texture_view) =
+            self.inputs.get(name.into()).expect("No input value found")
+        {
             return texture_view;
         } else {
             panic!("Wrong input type")
@@ -69,16 +71,13 @@ impl GraphContext {
     }
 }
 
-impl<T: IntoIterator<Item =(& 'static str, SlotValue)>> From<T> for GraphContext {
+impl<T: IntoIterator<Item = (&'static str, SlotValue)>> From<T> for GraphContext {
     fn from(iterator: T) -> Self {
         Self {
-            inputs: iterator.into_iter().collect()
+            inputs: iterator.into_iter().collect(),
         }
     }
 }
-
-
-
 
 // #[derive(Error, Debug, Eq, PartialEq)]
 // pub enum RunSubGraphError {

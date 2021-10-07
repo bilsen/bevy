@@ -460,7 +460,6 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
-
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,
