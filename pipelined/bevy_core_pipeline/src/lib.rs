@@ -61,12 +61,9 @@ pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        println!("4");
-
         app.init_resource::<ClearColor>();
 
         let render_app = app.sub_app(RenderApp);
-        println!("5");
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
@@ -76,14 +73,10 @@ impl Plugin for CorePipelinePlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
-        // let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
-        // let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        println!("6");
         let MainRenderGraphId(main_graph_id_ref) = render_app.world.get_resource().unwrap();
         let main_graph_id = main_graph_id_ref.clone();
         
         let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
-        println!("7");
 
 
         let mut draw_2d_graph = RenderGraph::default();

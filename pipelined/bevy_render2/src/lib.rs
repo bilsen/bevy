@@ -234,7 +234,6 @@ impl Plugin for RenderPlugin {
         });
 
 
-        println!("RenderPlugin created");
 
         app.add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
