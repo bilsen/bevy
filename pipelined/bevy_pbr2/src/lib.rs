@@ -12,12 +12,7 @@ use bevy_app::prelude::*;
 use bevy_asset::Handle;
 use bevy_core_pipeline::Transparent3d;
 use bevy_ecs::prelude::*;
-use bevy_render2::{
-    render_component::{ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::RenderGraph,
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
-    RenderApp, RenderStage,
-};
+use bevy_render2::{RenderApp, RenderStage, render_component::{ExtractComponentPlugin, UniformComponentPlugin}, render_graph::{RenderGraph, RenderGraphs}, render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions}};
 
 pub mod draw_3d_graph {
     pub mod node {
@@ -59,31 +54,24 @@ impl Plugin for PbrPlugin {
             .init_resource::<LightMeta>();
 
         let draw_shadow_mesh = DrawShadowMesh::new(&mut render_app.world);
-        let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
+        
         render_app.add_render_command::<Transparent3d, DrawPbr>();
         let render_world = render_app.world.cell();
         let draw_functions = render_world
             .get_resource::<DrawFunctions<Shadow>>()
             .unwrap();
         draw_functions.write().add(draw_shadow_mesh);
-        let mut graph = render_world.get_resource_mut::<RenderGraph>().unwrap();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
+        let mut graphs = render_world.get_resource_mut::<RenderGraphs>().unwrap();
+        
+        let draw_3d_graph = graphs.get_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
+        draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node_system);
         draw_3d_graph
-            .add_node_edge(
+            .add_edge(
                 draw_3d_graph::node::SHADOW_PASS,
                 bevy_core_pipeline::draw_3d_graph::node::MAIN_PASS,
             )
             .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::draw_3d_graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::SHADOW_PASS,
-                ShadowPassNode::IN_VIEW,
-            )
-            .unwrap();
+        
     }
 }

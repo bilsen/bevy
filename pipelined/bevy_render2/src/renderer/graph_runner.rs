@@ -1,7 +1,8 @@
-use bevy_ecs::world::World;
+use bevy_ecs::{archetype::ArchetypeGeneration, world::World};
+use bevy_reflect::List;
 use bevy_utils::{
     tracing::{debug, info_span},
-    HashMap,
+    HashMap, HashSet,
 };
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, collections::VecDeque};
@@ -9,13 +10,14 @@ use thiserror::Error;
 
 use crate::{
     render_graph::{
-        Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
-        SlotType, SlotValue,
+        Edge, GraphContext, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphId,
+        RenderGraphs, RunSubGraph, SlotLabel, SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},
 };
 
-pub(crate) struct RenderGraphRunner;
+use super::RenderQueue;
+
 
 #[derive(Error, Debug)]
 pub enum RenderGraphRunnerError {
@@ -42,13 +44,72 @@ pub enum RenderGraphRunnerError {
     },
 }
 
+
+pub(crate) struct RenderGraphRunner {
+    archetype_generation: ArchetypeGeneration,
+    initialized_nodes: HashSet<NodeId>
+}
+
+impl Default for RenderGraphRunner {
+    fn default() -> Self {
+        Self {
+            archetype_generation: ArchetypeGeneration::initial(),
+            initialized_nodes: HashSet::default()
+        }
+    }
+}
+
 impl RenderGraphRunner {
-    pub fn run(
-        graph: &RenderGraph,
+    fn update_archetypes(&mut self, world: &mut World, graphs: &mut RenderGraphs) {
+
+
+
+        
+        let archetypes = world.archetypes();
+        let new_generation = archetypes.generation();
+        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let archetype_index_range = old_generation.value()..new_generation.value();
+
+        for archetype in archetypes.archetypes()[archetype_index_range].iter() {
+           
+            let node_iterator = graphs.iter_graphs_mut().flat_map(|graph| graph.iter_nodes_mut());
+            for node in node_iterator {
+                
+                let system = node.system_mut();
+                system.new_archetype(archetype);
+                
+            }
+        }
+    }
+
+    fn initialize_nodes(&mut self, world: &mut World, graphs: &mut RenderGraphs) {
+        
+        
+        let node_iterator = graphs.iter_graphs_mut().flat_map(|graph| graph.iter_nodes_mut());
+        for node in node_iterator {
+            if !self.initialized_nodes.contains(&node.id) {
+                node.system_mut().initialize(world);
+                self.initialized_nodes.insert(node.id);
+            }
+        }
+    }
+
+    pub fn run_and_submit(
+        &mut self,
+        world: &mut World,
+        // Resource RenderGraphs is temporarily removed from world. this is to disallow any funky cross-system mutation from occuring.
+        render_graphs: &mut RenderGraphs,
+        graph_id: RenderGraphId,
         render_device: RenderDevice,
-        queue: &wgpu::Queue,
-        world: &World,
+        queue: RenderQueue,
     ) -> Result<(), RenderGraphRunnerError> {
+
+
+        self.initialize_nodes(world, render_graphs);
+        self.update_archetypes(world, render_graphs);
+
+
+
         let command_encoder =
             render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         let mut render_context = RenderContext {
@@ -59,7 +120,14 @@ impl RenderGraphRunner {
         {
             let span = info_span!("run_graph");
             let _guard = span.enter();
-            Self::run_graph(graph, None, &mut render_context, world, &[])?;
+            render_context = self.run_graph(
+                world,
+                render_graphs,
+                &graph_id,
+                None,
+                render_context,
+                GraphContext::default(),
+            )?;
         }
         {
             let span = info_span!("submit_graph_commands");
@@ -70,141 +138,80 @@ impl RenderGraphRunner {
     }
 
     fn run_graph(
-        graph: &RenderGraph,
+        &mut self,
+        world: &mut World,
+        render_graphs: &mut RenderGraphs,
+        graph_id: &RenderGraphId,
         graph_name: Option<Cow<'static, str>>,
-        render_context: &mut RenderContext,
-        world: &World,
-        inputs: &[SlotValue],
-    ) -> Result<(), RenderGraphRunnerError> {
-        let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
+        mut render_context: RenderContext,
+        graph_context: GraphContext,
+    ) -> Result<RenderContext, RenderGraphRunnerError> {
         debug!("-----------------");
         debug!("Begin Graph Run: {:?}", graph_name);
         debug!("-----------------");
 
         // Queue up nodes without inputs, which can be run immediately
-        let mut node_queue: VecDeque<&NodeState> = graph
-            .iter_nodes()
-            .filter(|node| node.input_slots.is_empty())
+        let mut node_queue: VecDeque<NodeId> = get_graph_mut(render_graphs, graph_id)
+            .iter_nodes_mut()
+            .filter(|node| node.edges.input_edges.is_empty())
+            .map(|state| state.id)
             .collect();
 
-        // pass inputs into the graph
-        if let Some(input_node) = graph.input_node() {
-            let mut input_values: SmallVec<[SlotValue; 4]> = SmallVec::new();
-            for (i, input_slot) in input_node.input_slots.iter().enumerate() {
-                if let Some(input_value) = inputs.get(i) {
-                    if input_slot.slot_type != input_value.slot_type() {
-                        return Err(RenderGraphRunnerError::MismatchedInputSlotType {
-                            slot_index: i,
-                            actual: input_value.slot_type(),
-                            expected: input_slot.slot_type,
-                            label: input_slot.name.clone().into(),
-                        });
-                    } else {
-                        input_values.push(input_value.clone());
-                    }
-                } else {
-                    return Err(RenderGraphRunnerError::MissingInput {
-                        slot_index: i,
-                        slot_name: input_slot.name.clone(),
-                        graph_name: graph_name.clone(),
-                    });
-                }
-            }
+        let mut finished_nodes: HashSet<NodeId> = HashSet::default();
 
-            node_outputs.insert(input_node.id, input_values);
-
-            for (_, node_state) in graph.iter_node_outputs(input_node.id).expect("node exists") {
-                node_queue.push_front(node_state);
-            }
-        }
-
-        'handle_node: while let Some(node_state) = node_queue.pop_back() {
+        'handle_node: while let Some(node_state_id) = node_queue.pop_front() {
+            // println!("Running node {}", node_state_id.uuid());
             // skip nodes that are already processed
-            if node_outputs.contains_key(&node_state.id) {
+            if finished_nodes.contains(&node_state_id) {
                 continue;
             }
 
-            let mut slot_indices_and_inputs: SmallVec<[(usize, SlotValue); 4]> = SmallVec::new();
-            // check if all dependencies have finished running
-            for (edge, input_node) in graph
-                .iter_node_inputs(node_state.id)
-                .expect("node is in graph")
+            // Check if all dependencies have finished running
+            for edge in get_graph_mut(render_graphs, graph_id)
+                .get_node_state(node_state_id)
+                .unwrap()
+                .edges
+                .input_edges
+                .iter()
             {
-                match edge {
-                    Edge::SlotEdge {
-                        output_index,
-                        input_index,
-                        ..
-                    } => {
-                        if let Some(outputs) = node_outputs.get(&input_node.id) {
-                            slot_indices_and_inputs
-                                .push((*input_index, outputs[*output_index].clone()));
-                        } else {
-                            node_queue.push_front(node_state);
-                            continue 'handle_node;
-                        }
-                    }
-                    Edge::NodeEdge { .. } => {
-                        if !node_outputs.contains_key(&input_node.id) {
-                            node_queue.push_front(node_state);
-                            continue 'handle_node;
-                        }
-                    }
+                let input_node = edge.get_input_node();
+                if !finished_nodes.contains(&input_node) {
+                    node_queue.push_back(input_node);
+                    continue 'handle_node;
                 }
             }
+            let mut node_state = get_graph_mut(render_graphs, graph_id)
+                .get_node_state_mut(node_state_id)
+                .unwrap();
 
-            // construct final sorted input list
-            slot_indices_and_inputs.sort_by_key(|(index, _)| *index);
-            let inputs: SmallVec<[SlotValue; 4]> = slot_indices_and_inputs
-                .into_iter()
-                .map(|(_, value)| value)
-                .collect();
-
-            assert_eq!(inputs.len(), node_state.input_slots.len());
-
-            let mut outputs: SmallVec<[Option<SlotValue>; 4]> =
-                smallvec![None; node_state.output_slots.len()];
-            {
-                let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
-                debug!("  Run Node {}", node_state.type_name);
-                node_state.node.run(&mut context, render_context, world)?;
-
-                for run_sub_graph in context.finish() {
-                    let sub_graph = graph
-                        .get_sub_graph(&run_sub_graph.name)
-                        .expect("sub graph exists because it was validated when queued.");
-                    debug!("    Run Sub Graph {}", node_state.type_name);
-                    Self::run_graph(
-                        sub_graph,
-                        Some(run_sub_graph.name),
-                        render_context,
-                        world,
-                        &run_sub_graph.inputs,
-                    )?;
-                }
-            }
-
-            let mut values: SmallVec<[SlotValue; 4]> = SmallVec::new();
-            for (i, output) in outputs.into_iter().enumerate() {
-                if let Some(value) = output {
-                    values.push(value);
-                } else {
-                    let empty_slot = node_state.output_slots.get_slot(i).unwrap();
-                    return Err(RenderGraphRunnerError::EmptyNodeOutputSlot {
-                        type_name: node_state.type_name,
-                        slot_index: i,
-                        slot_name: empty_slot.name.clone(),
-                    });
-                }
-            }
-            node_outputs.insert(node_state.id, values);
-
-            for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {
-                node_queue.push_front(node_state);
+            // Run node TODO: Error handling, destructuring assignments
+            let output = node_state
+                .system
+                .run((render_context, graph_context.clone()), world)
+                .unwrap();
+            let sub_graph_runs = output.1;
+            render_context = output.0;
+            for run_sub_graph in sub_graph_runs.drain() {
+                render_context = self.run_graph(
+                    world,
+                    render_graphs,
+                    &run_sub_graph.id,
+                    None,
+                    render_context,
+                    run_sub_graph.context,
+                )
+                .unwrap();
             }
         }
 
         debug!("finish graph: {:?}", graph_name);
-        Ok(())
+        Ok(render_context)
     }
+}
+
+fn get_graph_mut<'a>(
+    render_graphs: &'a mut RenderGraphs,
+    id: &RenderGraphId,
+) -> &'a mut RenderGraph {
+    render_graphs.get_mut(id).unwrap()
 }

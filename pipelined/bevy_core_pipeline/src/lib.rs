@@ -10,17 +10,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_render2::{
-    camera::{ActiveCameras, CameraPlugin},
-    color::Color,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
-    render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
-    render_resource::*,
-    renderer::RenderDevice,
-    texture::{Image, TextureCache},
-    view::ExtractedView,
-    RenderApp, RenderStage, RenderWorld,
-};
+use bevy_render2::{RenderApp, RenderStage, RenderWorld, camera::{ActiveCameras, CameraPlugin}, color::Color, render_graph::{MainRenderGraphId, RenderGraph, RenderGraphs, SlotInfo, SlotType, empty_node_system}, render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase}, render_resource::*, renderer::RenderDevice, texture::{Image, TextureCache}, view::ExtractedView};
 
 /// Resource that configures the clear color
 #[derive(Clone, Debug)]
@@ -71,9 +61,12 @@ pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
+        println!("4");
+
         app.init_resource::<ClearColor>();
 
         let render_app = app.sub_app(RenderApp);
+        println!("5");
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
@@ -83,72 +76,33 @@ impl Plugin for CorePipelinePlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
-        let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
-        let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+        // let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
+        // let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
+        println!("6");
+        let main_graph_id = render_app.world.get_resource::<MainRenderGraphId>().unwrap().id();
+        
+        let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+        println!("7");
+
 
         let mut draw_2d_graph = RenderGraph::default();
-        draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
-        let input_node_id = draw_2d_graph.set_input(vec![
-            SlotInfo::new(draw_2d_graph::input::VIEW_ENTITY, SlotType::Entity),
-            SlotInfo::new(draw_2d_graph::input::RENDER_TARGET, SlotType::TextureView),
-        ]);
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_2d_graph::input::VIEW_ENTITY,
-                draw_2d_graph::node::MAIN_PASS,
-                MainPass2dNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_2d_graph::input::RENDER_TARGET,
-                draw_2d_graph::node::MAIN_PASS,
-                MainPass2dNode::IN_COLOR_ATTACHMENT,
-            )
-            .unwrap();
-        graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
+        draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, main_pass_2d_node);
+        let draw_2d_graph_id = *draw_2d_graph.id();
+        graphs.insert(draw_2d_graph::NAME, draw_2d_graph);
 
         let mut draw_3d_graph = RenderGraph::default();
-        draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, pass_node_3d);
-        let input_node_id = draw_3d_graph.set_input(vec![
-            SlotInfo::new(draw_3d_graph::input::VIEW_ENTITY, SlotType::Entity),
-            SlotInfo::new(draw_3d_graph::input::RENDER_TARGET, SlotType::TextureView),
-            SlotInfo::new(draw_3d_graph::input::DEPTH, SlotType::TextureView),
-        ]);
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::RENDER_TARGET,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_COLOR_ATTACHMENT,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::DEPTH,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_DEPTH,
-            )
-            .unwrap();
-        graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
+        draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, main_pass_3d_node);
+        let draw_3d_graph_id = *draw_3d_graph.id();
+        graphs.insert(draw_3d_graph::NAME, draw_3d_graph);
 
-        graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
-        graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
-        graph
-            .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
-            .unwrap();
+        let main_graph = graphs.get_mut(&main_graph_id).unwrap();
+
+        main_graph.add_node(node::MAIN_PASS_DRIVER, main_pass_driver_node_system);
+        main_graph.add_node(node::MAIN_PASS_DEPENDENCIES, empty_node_system);
+        main_graph.add_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER).unwrap();
+        
+        render_app.world.insert_resource(Draw2dGraphId(draw_2d_graph_id));
+        render_app.world.insert_resource(Draw3dGraphId(draw_3d_graph_id));
     }
 }
 

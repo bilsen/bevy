@@ -12,15 +12,9 @@ pub mod texture;
 pub mod view;
 
 pub use once_cell;
+use render_graph::{MainRenderGraphId, RenderGraphs};
 
-use crate::{
-    camera::CameraPlugin,
-    mesh::MeshPlugin,
-    render_graph::RenderGraph,
-    renderer::render_system,
-    texture::ImagePlugin,
-    view::{ViewPlugin, WindowRenderPlugin},
-};
+use crate::{camera::CameraPlugin, mesh::MeshPlugin, render_graph::RenderGraph, renderer::{RenderGraphRunner, render_system}, texture::ImagePlugin, view::{ViewPlugin, WindowRenderPlugin}};
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::AssetServer;
 use bevy_ecs::prelude::*;
@@ -84,6 +78,7 @@ struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
+        println!("Creating instance");
         let (instance, device, queue) =
             futures_lite::future::block_on(renderer::initialize_renderer(
                 BackendBit::PRIMARY,
@@ -93,6 +88,8 @@ impl Plugin for RenderPlugin {
                 },
                 &wgpu::DeviceDescriptor::default(),
             ));
+        println!("Instance created");
+        
         app.insert_resource(device.clone())
             .insert_resource(queue.clone())
             .init_resource::<ScratchRenderWorld>();
@@ -117,7 +114,15 @@ impl Plugin for RenderPlugin {
             .insert_resource(device)
             .insert_resource(queue)
             .insert_resource(asset_server)
-            .init_resource::<RenderGraph>();
+            .init_resource::<RenderGraphs>()
+            .init_resource::<RenderGraphRunner>();
+        
+        let main_render_graph: RenderGraph = Default::default();
+        render_app.insert_resource(MainRenderGraphId::new(*main_render_graph.id()));
+
+
+        let mut render_graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+        render_graphs.insert("main_graph", main_render_graph);
 
         app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
             #[cfg(feature = "trace")]
@@ -227,6 +232,9 @@ impl Plugin for RenderPlugin {
                 render_app.world.clear_entities();
             }
         });
+
+
+        println!("RenderPlugin created");
 
         app.add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)

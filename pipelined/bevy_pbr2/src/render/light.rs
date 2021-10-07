@@ -10,22 +10,9 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemState},
 };
 use bevy_math::{const_vec3, Mat4, Vec3, Vec4};
-use bevy_render2::{
-    camera::CameraProjection,
-    color::Color,
-    mesh::Mesh,
-    render_asset::RenderAssets,
-    render_component::DynamicUniformIndex,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{
+use bevy_render2::{camera::CameraProjection, color::Color, mesh::Mesh, render_asset::RenderAssets, render_component::DynamicUniformIndex, render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, SlotInfo, SlotType}, render_phase::{
         Draw, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, TrackedRenderPass,
-    },
-    render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
-    shader::Shader,
-    texture::*,
-    view::{ExtractedView, ViewUniformOffset, ViewUniforms},
-};
+    }, render_resource::*, renderer::{RenderContext, RenderDevice, RenderQueue}, shader::Shader, texture::*, view::{ExtractedView, ViewUniformOffset, ViewUniforms}};
 use bevy_transform::components::GlobalTransform;
 use crevice::std140::AsStd140;
 use std::num::NonZeroU32;
@@ -681,75 +668,51 @@ impl PhaseItem for Shadow {
     }
 }
 
-pub struct ShadowPassNode {
-    main_view_query: QueryState<&'static ViewLights>,
-    view_light_query: QueryState<(&'static ViewLight, &'static RenderPhase<Shadow>)>,
-}
 
-impl ShadowPassNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-            view_light_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for ShadowPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(ShadowPassNode::IN_VIEW, SlotType::Entity)]
-    }
-
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-        self.view_light_query.update_archetypes(world);
-    }
-
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
-            for view_light_entity in view_lights.lights.iter().copied() {
-                let (view_light, shadow_phase) = self
-                    .view_light_query
-                    .get_manual(world, view_light_entity)
-                    .unwrap();
-                let pass_descriptor = RenderPassDescriptor {
-                    label: Some(&view_light.pass_name),
-                    color_attachments: &[],
-                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        view: &view_light.depth_texture_view,
-                        depth_ops: Some(Operations {
-                            load: LoadOp::Clear(0.0),
-                            store: true,
-                        }),
-                        stencil_ops: None,
+pub fn shadow_pass_node_system(
+    In((mut render_context, graph)): In<NodeInput>,
+    main_view_query: Query<&ViewLights>,
+    view_light_query: Query<(&ViewLight, &RenderPhase<Shadow>)>,
+    world: &World,
+) -> NodeResult {
+    let view_entity = *graph.get_input_entity("view");
+    if let Ok(view_lights) = main_view_query.get(view_entity) {
+        for view_light_entity in view_lights.lights.iter().copied() {
+            let (view_light, shadow_phase) =
+                view_light_query
+                .get(view_light_entity)
+                .unwrap();
+            
+            let pass_descriptor = RenderPassDescriptor {
+                label: Some(&view_light.pass_name),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &view_light.depth_texture_view,
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Clear(0.0),
+                        store: true,
                     }),
-                };
+                    stencil_ops: None,
+                }),
+            };
 
-                let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
+            let draw_functions = world.get_resource::<DrawFunctions<Shadow>>().unwrap();
 
-                let render_pass = render_context
-                    .command_encoder
-                    .begin_render_pass(&pass_descriptor);
-                let mut draw_functions = draw_functions.write();
-                let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for item in shadow_phase.items.iter() {
-                    let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                    draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
-                }
+            let render_pass = render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor);
+            let mut draw_functions = draw_functions.write();
+            let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            for item in shadow_phase.items.iter() {
+                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+                draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
             }
         }
-
-        Ok(())
     }
+
+    Ok((render_context, Default::default()))
 }
+
 
 pub struct DrawShadowMesh {
     params: SystemState<(

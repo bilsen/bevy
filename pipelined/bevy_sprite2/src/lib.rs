@@ -17,9 +17,7 @@ pub use texture_atlas_builder::*;
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_core_pipeline::Transparent2d;
-use bevy_render2::{
-    render_graph::RenderGraph, render_phase::DrawFunctions, RenderApp, RenderStage,
-};
+use bevy_render2::{RenderApp, RenderStage, render_graph::{MainRenderGraphId, RenderGraph, RenderGraphs}, render_phase::DrawFunctions};
 
 #[derive(Default)]
 pub struct SpritePlugin;
@@ -44,10 +42,14 @@ impl Plugin for SpritePlugin {
             .unwrap()
             .write()
             .add(draw_sprite);
-        let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
-        graph.add_node("sprite", SpriteNode);
-        graph
-            .add_node_edge("sprite", bevy_core_pipeline::node::MAIN_PASS_DEPENDENCIES)
+        
+        
+        let main_graph_id = render_app.world.get_resource::<MainRenderGraphId>().unwrap().id();
+        let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
+        let mut main_graph = graphs.get_mut(&main_graph_id).unwrap();
+        main_graph.add_node("sprite", sprite_node_system);
+        main_graph
+            .add_edge("sprite", bevy_core_pipeline::node::MAIN_PASS_DEPENDENCIES)
             .unwrap();
     }
 }

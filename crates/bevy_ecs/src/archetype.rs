@@ -364,6 +364,12 @@ pub struct Archetypes {
     archetype_ids: HashMap<ArchetypeIdentity, ArchetypeId>,
 }
 
+impl Archetypes {
+    pub fn archetypes(&self) -> &Vec<Archetype> {
+        &self.archetypes
+    }
+}
+
 impl Default for Archetypes {
     fn default() -> Self {
         let mut archetypes = Archetypes {

@@ -5,25 +5,33 @@ use bevy_utils::tracing::info;
 pub use graph_runner::*;
 pub use render_device::*;
 
-use crate::render_graph::RenderGraph;
+use crate::render_graph::{MainRenderGraphId, RenderGraph, RenderGraphs};
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
 use wgpu::{BackendBit, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};
 
 pub fn render_system(world: &mut World) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
-        graph.update(world);
+    world.resource_scope(|world, mut graphs: Mut<RenderGraphs>| {
+        world.resource_scope(|world, mut graph_runner: Mut<RenderGraphRunner>| {
+            world.resource_scope(|world, mut render_device: Mut<RenderDevice>| {
+                world.resource_scope(|world, mut render_queue: Mut<RenderQueue>| {
+                    let main_graph_id = world.get_resource::<MainRenderGraphId>().unwrap().id();
+                    graph_runner.run_and_submit(
+                        world,
+                        &mut graphs,
+                        main_graph_id,
+                        render_device.clone(),
+                        render_queue.clone(),
+                    )
+                    .unwrap();
+            
+                    graphs.get_mut(&main_graph_id).unwrap().update(world);
+
+                })
+            })
+            
+        });
     });
-    let graph = world.get_resource::<RenderGraph>().unwrap();
-    let render_device = world.get_resource::<RenderDevice>().unwrap();
-    let render_queue = world.get_resource::<RenderQueue>().unwrap();
-    RenderGraphRunner::run(
-        graph,
-        render_device.clone(), // TODO: is this clone really necessary?
-        render_queue,
-        world,
-    )
-    .unwrap();
 }
 
 pub type RenderQueue = Arc<Queue>;
