@@ -15,7 +15,7 @@ pub fn render_system(world: &mut World) {
         world.resource_scope(|world, mut graph_runner: Mut<RenderGraphRunner>| {
             world.resource_scope(|world, mut render_device: Mut<RenderDevice>| {
                 world.resource_scope(|world, mut render_queue: Mut<RenderQueue>| {
-                    let main_graph_id = world.get_resource::<MainRenderGraphId>().unwrap().id();
+                    let main_graph_id = world.get_resource::<MainRenderGraphId>().unwrap().0;
                     graph_runner.run_and_submit(
                         world,
                         &mut graphs,

@@ -2,22 +2,22 @@ use super::NodeId;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Edge {
-    input_node: NodeId,
-    output_node: NodeId,
+    before_node: NodeId,
+    after_node: NodeId,
 }
 
 impl Edge {
-    pub fn new(input_node: NodeId, output_node: NodeId) -> Self {
+    pub fn new(before_node: NodeId, after_node: NodeId) -> Self {
         Edge {
-            input_node,
-            output_node,
+            before_node,
+            after_node,
         }
     }
-    pub fn get_input_node(&self) -> NodeId {
-        self.input_node
+    pub fn get_before_node(&self) -> NodeId {
+        self.before_node
     }
 
-    pub fn get_output_node(&self) -> NodeId {
-        self.output_node
+    pub fn get_after_node(&self) -> NodeId {
+        self.after_node
     }
 }

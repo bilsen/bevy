@@ -79,6 +79,7 @@ fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>)
                 });
 
         // NOTE: Drop the swap chain frame here
+
         extracted_window.swap_chain_frame = None;
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
@@ -112,6 +113,8 @@ pub fn prepare_windows(
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
 ) {
+    
+    
     let window_surfaces = window_surfaces.deref_mut();
     for window in windows.windows.values_mut() {
         let surface = window_surfaces

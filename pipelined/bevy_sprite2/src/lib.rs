@@ -44,7 +44,7 @@ impl Plugin for SpritePlugin {
             .add(draw_sprite);
         
         
-        let main_graph_id = render_app.world.get_resource::<MainRenderGraphId>().unwrap().id();
+        let main_graph_id = render_app.world.get_resource::<MainRenderGraphId>().unwrap().0.clone();
         let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
         let mut main_graph = graphs.get_mut(&main_graph_id).unwrap();
         main_graph.add_node("sprite", sprite_node_system);

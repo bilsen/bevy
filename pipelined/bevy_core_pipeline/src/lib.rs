@@ -79,7 +79,8 @@ impl Plugin for CorePipelinePlugin {
         // let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         // let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
         println!("6");
-        let main_graph_id = render_app.world.get_resource::<MainRenderGraphId>().unwrap().id();
+        let MainRenderGraphId(main_graph_id_ref) = render_app.world.get_resource().unwrap();
+        let main_graph_id = main_graph_id_ref.clone();
         
         let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
         println!("7");

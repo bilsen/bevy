@@ -25,21 +25,7 @@ impl RenderGraphId {
     }
 }
 
-pub struct MainRenderGraphId(RenderGraphId);
-impl MainRenderGraphId {
-    pub fn new(id: RenderGraphId) -> Self {
-        Self(id)
-    }
-    pub fn id(&self) -> RenderGraphId {
-        self.0
-    }
-}
-
-impl Default for MainRenderGraphId {
-    fn default() -> Self {
-        Self(RenderGraphId::new())
-    }
-}
+pub struct MainRenderGraphId(pub RenderGraphId);
 
 #[derive(Default)]
 pub struct RenderGraphs {
@@ -156,38 +142,34 @@ impl RenderGraph {
     }
     pub fn add_edge(
         &mut self,
-        output_node: impl Into<NodeLabel>,
-        input_node: impl Into<NodeLabel>,
+        dependency: impl Into<NodeLabel>,
+        dependant: impl Into<NodeLabel>,
     ) -> Result<(), RenderGraphError> {
-        let output_node_id = self.get_node_id(output_node)?;
-        let input_node_id = self.get_node_id(input_node)?;
+        let dependency_node_id = self.get_node_id(dependency)?;
+        let dependant_node_id = self.get_node_id(dependant)?;
 
-        let edge = Edge::new(input_node_id, output_node_id);
+        let edge = Edge::new(dependency_node_id, dependant_node_id);
 
         {
-            let output_node = self.get_node_state_mut(output_node_id)?;
-            output_node.edges.add_output_edge(edge.clone())?;
+            let dependency_node = self.get_node_state_mut(dependency_node_id)?;
+            dependency_node.edges.add_dependant(dependant_node_id);
         }
-        let input_node = self.get_node_state_mut(input_node_id)?;
-        input_node.edges.add_input_edge(edge)?;
+        let dependant_node = self.get_node_state_mut(dependant_node_id)?;
+        dependant_node.edges.add_dependency(dependency_node_id);
 
         Ok(())
     }
 
-    pub fn has_edge(&self, edge: &Edge) -> bool {
-        let output_node_state = self.get_node_state(edge.get_output_node());
-        let input_node_state = self.get_node_state(edge.get_input_node());
-        if let Ok(output_node_state) = output_node_state {
-            if output_node_state.edges.output_edges.contains(edge) {
-                if let Ok(input_node_state) = input_node_state {
-                    if input_node_state.edges.input_edges.contains(edge) {
-                        return true;
-                    }
-                }
-            }
-        }
+    pub fn iter_dependants(&self, id: &NodeId) -> impl Iterator<Item=&NodeId> {
+        
+        self.nodes.get(id).unwrap().edges.iter_dependants()
+        
+    }
 
-        false
+    pub fn iter_dependencies(&self, id: &NodeId) -> impl Iterator<Item=&NodeId> {
+        
+        self.nodes.get(id).unwrap().edges.iter_dependencies()
+        
     }
 
     pub fn iter_nodes(&self) -> impl Iterator<Item = &NodeState> {
@@ -198,33 +180,20 @@ impl RenderGraph {
         self.nodes.values_mut()
     }
 
-    pub fn iter_node_inputs(
-        &self,
-        label: impl Into<NodeLabel>,
-    ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
-        let node = self.get_node_state(label)?;
-        Ok(node
-            .edges
-            .input_edges
-            .iter()
-            .map(|edge| (edge, edge.get_output_node()))
-            .map(move |(edge, output_node_id)| {
-                (edge, self.get_node_state(output_node_id).unwrap())
-            }))
-    }
-
-    pub fn iter_node_outputs(
-        &self,
-        label: impl Into<NodeLabel>,
-    ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
-        let node = self.get_node_state(label)?;
-        Ok(node
-            .edges
-            .output_edges
-            .iter()
-            .map(|edge| (edge, edge.get_input_node()))
-            .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
-    }
+    // pub fn iter_node_inputs(
+    //     &self,
+    //     label: impl Into<NodeLabel>,
+    // ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
+    //     let node = self.get_node_state(label)?;
+    //     Ok(node
+    //         .edges
+    //         .input_edges
+    //         .iter()
+    //         .map(|edge| (edge, edge.get_before_node()))
+    //         .map(move |(edge, output_node_id)| {
+    //             (edge, self.get_node_state(output_node_id).unwrap())
+    //         }))
+    // }
 
     pub fn id(&self) -> &RenderGraphId {
         &self.id
@@ -235,8 +204,8 @@ impl Debug for RenderGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for node in self.iter_nodes() {
             writeln!(f, "{:?}", node.id)?;
-            writeln!(f, "  in: {:?}", node.edges.input_edges)?;
-            writeln!(f, "  out: {:?}", node.edges.output_edges)?;
+            writeln!(f, "  dependencies: {:?}", node.edges.dependencies)?;
+            writeln!(f, "  dependants: {:?}", node.edges.dependants)?;
         }
 
         Ok(())

@@ -20,6 +20,7 @@ pub fn main_pass_driver_node_system(
     draw_3d_id: Res<Draw3dGraphId>
 
 ) -> NodeResult {
+
     let mut sub_graph_runs = RunSubGraphs::default();
 
     if let Some(camera_2d) = extracted_camera_names.entities.get(CameraPlugin::CAMERA_2D) {

@@ -78,7 +78,7 @@ struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        println!("Creating instance");
+        
         let (instance, device, queue) =
             futures_lite::future::block_on(renderer::initialize_renderer(
                 BackendBit::PRIMARY,
@@ -88,7 +88,7 @@ impl Plugin for RenderPlugin {
                 },
                 &wgpu::DeviceDescriptor::default(),
             ));
-        println!("Instance created");
+            
         
         app.insert_resource(device.clone())
             .insert_resource(queue.clone())
@@ -118,7 +118,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderGraphRunner>();
         
         let main_render_graph: RenderGraph = Default::default();
-        render_app.insert_resource(MainRenderGraphId::new(*main_render_graph.id()));
+        render_app.insert_resource(MainRenderGraphId(*main_render_graph.id()));
 
 
         let mut render_graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();

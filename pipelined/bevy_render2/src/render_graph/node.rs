@@ -51,36 +51,38 @@ pub enum NodeRunError {
 // RunSubGraphError(#[from] RunSubGraphError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Edges {
-    pub id: NodeId,
-    pub input_edges: Vec<Edge>,
-    pub output_edges: Vec<Edge>,
+    pub dependencies: Vec<NodeId>,
+    pub dependants: Vec<NodeId>,
 }
 
+
 impl Edges {
-    pub(crate) fn add_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if self.has_input_edge(&edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge));
-        }
-        self.input_edges.push(edge);
-        Ok(())
+
+
+    pub(crate) fn add_dependency(&mut self, node: NodeId) {
+        self.dependencies.push(node);
     }
 
-    pub(crate) fn add_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if self.has_output_edge(&edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge));
-        }
-        self.output_edges.push(edge);
-        Ok(())
+    pub(crate) fn add_dependant(&mut self, node: NodeId) {
+        self.dependants.push(node);
     }
 
-    pub fn has_input_edge(&self, edge: &Edge) -> bool {
-        self.input_edges.contains(edge)
+    pub fn has_dependency(&self, edge: &NodeId) -> bool {
+        self.dependencies.contains(edge)
     }
 
-    pub fn has_output_edge(&self, edge: &Edge) -> bool {
-        self.output_edges.contains(edge)
+    pub fn has_dependant(&self, edge: &NodeId) -> bool {
+        self.dependants.contains(edge)
+    }
+
+    pub fn iter_dependencies(&self) -> impl Iterator<Item = &NodeId> {
+        self.dependencies.iter()
+    }
+
+    pub fn iter_dependants(&self) -> impl Iterator<Item = &NodeId> {
+        self.dependants.iter()
     }
 }
 
@@ -103,11 +105,7 @@ impl NodeState {
             id,
             name: Some(node.name()),
             system: node,
-            edges: Edges {
-                id,
-                input_edges: Vec::new(),
-                output_edges: Vec::new(),
-            },
+            edges: Edges::default(),
         }
     }
 

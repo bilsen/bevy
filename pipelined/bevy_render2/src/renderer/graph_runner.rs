@@ -150,33 +150,38 @@ impl RenderGraphRunner {
         debug!("Begin Graph Run: {:?}", graph_name);
         debug!("-----------------");
 
+
         // Queue up nodes without inputs, which can be run immediately
         let mut node_queue: VecDeque<NodeId> = get_graph_mut(render_graphs, graph_id)
-            .iter_nodes_mut()
-            .filter(|node| node.edges.input_edges.is_empty())
+            .iter_nodes()
+            .filter(|node| node.edges.dependencies.is_empty())
             .map(|state| state.id)
             .collect();
 
         let mut finished_nodes: HashSet<NodeId> = HashSet::default();
 
         'handle_node: while let Some(node_state_id) = node_queue.pop_front() {
-            // println!("Running node {}", node_state_id.uuid());
+            
+
+
+
             // skip nodes that are already processed
             if finished_nodes.contains(&node_state_id) {
                 continue;
             }
 
+
             // Check if all dependencies have finished running
-            for edge in get_graph_mut(render_graphs, graph_id)
+            for dependency_node in get_graph_mut(render_graphs, graph_id)
                 .get_node_state(node_state_id)
                 .unwrap()
                 .edges
-                .input_edges
+                .dependencies
                 .iter()
             {
-                let input_node = edge.get_input_node();
-                if !finished_nodes.contains(&input_node) {
-                    node_queue.push_back(input_node);
+                
+                if !finished_nodes.contains(&dependency_node) {
+                    node_queue.push_back(node_state_id);
                     continue 'handle_node;
                 }
             }
@@ -189,9 +194,11 @@ impl RenderGraphRunner {
                 .system
                 .run((render_context, graph_context.clone()), world)
                 .unwrap();
+
             let sub_graph_runs = output.1;
             render_context = output.0;
             for run_sub_graph in sub_graph_runs.drain() {
+                
                 render_context = self.run_graph(
                     world,
                     render_graphs,
@@ -202,6 +209,13 @@ impl RenderGraphRunner {
                 )
                 .unwrap();
             }
+            finished_nodes.insert(node_state_id);
+            for output_node_id in get_graph_mut(render_graphs, graph_id).iter_dependants(&node_state_id) {
+                
+                node_queue.push_back(*output_node_id);
+            }
+
+
         }
 
         debug!("finish graph: {:?}", graph_name);
