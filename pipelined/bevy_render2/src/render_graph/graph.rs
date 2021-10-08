@@ -210,21 +210,6 @@ impl RenderGraph {
         self.nodes.values_mut()
     }
 
-    // pub fn iter_node_inputs(
-    //     &self,
-    //     label: impl Into<NodeLabel>,
-    // ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
-    //     let node = self.get_node_state(label)?;
-    //     Ok(node
-    //         .edges
-    //         .input_edges
-    //         .iter()
-    //         .map(|edge| (edge, edge.get_before_node()))
-    //         .map(move |(edge, output_node_id)| {
-    //             (edge, self.get_node_state(output_node_id).unwrap())
-    //         }))
-    // }
-
     pub fn id(&self) -> &RenderGraphId {
         &self.id
     }
