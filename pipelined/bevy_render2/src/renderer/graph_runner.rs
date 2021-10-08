@@ -169,14 +169,13 @@ impl RenderGraphRunner {
                 .get_node_state_mut(node_state_id)
                 .unwrap();
 
-            // Run node TODO: Error handling, destructuring assignments
-            let output = node_state
+            // Run node TODO: Error handling
+            let (output_encoder, sub_graph_runs) = node_state
                 .system
                 .run((command_encoder, graph_context.clone()), world)
                 .unwrap();
 
-            let sub_graph_runs = output.1;
-            command_encoder = output.0;
+            command_encoder = output_encoder;
             for run_sub_graph in sub_graph_runs.drain() {
                 command_encoder = self.run_graph(
                     world,

@@ -54,7 +54,6 @@ pub fn main_pass_3d_node(
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
         for item in transparent_phase.items.iter() {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-            println!("Drawn 3d object");
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
         }
     }
