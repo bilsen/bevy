@@ -12,7 +12,12 @@ use bevy_app::prelude::*;
 use bevy_asset::Handle;
 use bevy_core_pipeline::Transparent3d;
 use bevy_ecs::prelude::*;
-use bevy_render2::{RenderApp, RenderStage, render_component::{ExtractComponentPlugin, UniformComponentPlugin}, render_graph::{RenderGraph, RenderGraphs, RenderNodeBuilder}, render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions}};
+use bevy_render2::{
+    render_component::{ExtractComponentPlugin, UniformComponentPlugin},
+    render_graph::{RenderGraph, RenderGraphs, RenderNodeBuilder},
+    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
+    RenderApp, RenderStage,
+};
 
 pub mod draw_3d_graph {
     pub mod node {
@@ -66,10 +71,11 @@ impl Plugin for PbrPlugin {
         let draw_3d_graph = graphs
             .get_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();
-        draw_3d_graph.add_node(RenderNodeBuilder::new()
-            .with_name(draw_3d_graph::node::SHADOW_PASS)
-            .with_system(shadow_pass_node_system)
-            .build()
+        draw_3d_graph.add_node(
+            RenderNodeBuilder::new()
+                .with_name(draw_3d_graph::node::SHADOW_PASS)
+                .with_system(shadow_pass_node_system)
+                .build(),
         );
         draw_3d_graph
             .add_edge(

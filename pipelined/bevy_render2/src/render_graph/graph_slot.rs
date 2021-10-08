@@ -154,6 +154,10 @@ impl SlotInfos {
         }
     }
 
+    pub fn add_slot(&mut self, info: SlotInfo) {
+        self.slots.push(info);
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &SlotInfo> {
         self.slots.iter()
     }

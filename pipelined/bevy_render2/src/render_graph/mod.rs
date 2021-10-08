@@ -2,15 +2,15 @@ mod context;
 mod edge;
 mod graph;
 mod graph_slot;
-mod node;
 mod labels;
+mod node;
 
 pub use context::*;
 pub use edge::*;
 pub use graph::*;
 pub use graph_slot::*;
-pub use node::*;
 pub use labels::*;
+pub use node::*;
 
 use thiserror::Error;
 

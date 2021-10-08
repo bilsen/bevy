@@ -1,18 +1,10 @@
-use crate::{
-    render_graph::{
-        Edge, GraphContext, NodeId, NodeLabel, NodeRunError, RenderNode, RenderGraphError,
-    },
-    renderer::RenderContext,
-};
-use bevy_ecs::{
-    prelude::World,
-    system::{IntoSystem, System},
-};
-use bevy_reflect::{List, Uuid};
+use crate::render_graph::{Edge, NodeId, NodeLabel, RenderGraphError, RenderNode};
+use bevy_ecs::prelude::World;
+use bevy_reflect::Uuid;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
-use super::{NodeSystem, SlotInfos};
+use super::SlotInfos;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct RenderGraphId(Uuid);
@@ -41,7 +33,7 @@ pub trait IntoGraphId {
 }
 
 impl<'a> IntoGraphId for &'a RenderGraphId {
-    fn into_id(&self, graphs: &RenderGraphs) -> RenderGraphId {
+    fn into_id(&self, _graphs: &RenderGraphs) -> RenderGraphId {
         *self.clone()
     }
 }
@@ -87,7 +79,8 @@ pub struct RenderGraph {
     name: Cow<'static, str>,
     nodes: HashMap<NodeId, RenderNode>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
-    slot_infos: SlotInfos
+    /// What is required to run this graph
+    slot_infos: SlotInfos,
 }
 
 impl Default for RenderGraph {
@@ -97,12 +90,9 @@ impl Default for RenderGraph {
             id: RenderGraphId::new(),
             nodes: HashMap::default(),
             node_names: HashMap::default(),
-            slot_infos: SlotInfos::default()
+            slot_infos: SlotInfos::default(),
         }
     }
-
-    
-
 }
 
 impl RenderGraph {
@@ -119,11 +109,7 @@ impl RenderGraph {
         //     node.system.apply_buffers(world)
         // }
     }
-    pub fn add_node(
-        &mut self,
-        node: RenderNode,
-    ) -> NodeId
-    {
+    pub fn add_node(&mut self, node: RenderNode) -> NodeId {
         let id = *node.id();
         let name = node.name().clone();
 
@@ -140,10 +126,7 @@ impl RenderGraph {
         id
     }
 
-    pub fn get_node_state(
-        &self,
-        label: impl Into<NodeLabel>,
-    ) -> Result<&RenderNode, RenderGraphError> {
+    pub fn get_node(&self, label: impl Into<NodeLabel>) -> Result<&RenderNode, RenderGraphError> {
         let label = label.into();
         let node_id = self.get_node_id(&label)?;
         self.nodes
@@ -151,7 +134,7 @@ impl RenderGraph {
             .ok_or(RenderGraphError::InvalidNode(label))
     }
 
-    pub fn get_node_state_mut(
+    pub fn get_node_mut(
         &mut self,
         label: impl Into<NodeLabel>,
     ) -> Result<&mut RenderNode, RenderGraphError> {
@@ -181,13 +164,11 @@ impl RenderGraph {
         let dependency_node_id = self.get_node_id(dependency)?;
         let dependant_node_id = self.get_node_id(dependant)?;
 
-        let edge = Edge::new(dependency_node_id, dependant_node_id);
-
         {
-            let dependency_node = self.get_node_state_mut(dependency_node_id)?;
+            let dependency_node = self.get_node_mut(dependency_node_id)?;
             dependency_node.edges.add_dependant(dependant_node_id);
         }
-        let dependant_node = self.get_node_state_mut(dependant_node_id)?;
+        let dependant_node = self.get_node_mut(dependant_node_id)?;
         dependant_node.edges.add_dependency(dependency_node_id);
 
         Ok(())

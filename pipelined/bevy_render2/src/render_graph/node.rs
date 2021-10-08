@@ -1,19 +1,14 @@
-use crate::{
-    render_graph::{
-        Edge,
-        RenderGraphError,
-        // RunSubGraphError,
-    },
-    renderer::RenderContext,
+use bevy_ecs::{
+    archetype::Archetype,
+    system::{In, IntoSystem, System},
+    world::World,
 };
-use bevy_ecs::{archetype::Archetype, system::{In, IntoSystem, System}, world::World};
 use bevy_utils::{HashSet, Uuid};
-use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 use wgpu::CommandEncoder;
 
-use super::{GraphContext, RunSubGraph, RunSubGraphs};
+use super::{GraphContext, RunSubGraphs, SlotInfo, SlotInfos};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NodeId(Uuid);
@@ -112,12 +107,8 @@ impl NodeSystem {
 
     pub fn name(&self) -> Cow<'static, str> {
         match self {
-            &NodeSystem::RecordingSystem(ref system) => {
-                system.name()
-            }
-            &NodeSystem::RunSubGraphSystem(ref system) => {
-                system.name()
-            }
+            &NodeSystem::RecordingSystem(ref system) => system.name(),
+            &NodeSystem::RunSubGraphSystem(ref system) => system.name(),
         }
     }
 }
@@ -133,13 +124,14 @@ impl From<RecordingNodeSystem> for NodeSystem {
     }
 }
 
-
 pub struct RenderNode {
     pub id: NodeId,
     pub name: Cow<'static, str>,
     pub system: NodeSystem,
     pub system_name: Cow<'static, str>,
     pub edges: Edges,
+    /// What slots need to be present in the render graph
+    pub slot_requirements: SlotInfos,
 }
 
 impl Debug for RenderNode {
@@ -156,6 +148,7 @@ impl RenderNode {
             system_name: system.name(),
             system,
             edges: Edges::default(),
+            slot_requirements: SlotInfos::default(),
         }
     }
 
@@ -185,22 +178,22 @@ impl RenderNode {
     pub fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
-
 }
-
 
 pub struct RenderNodeBuilder {
     pub id: NodeId,
     pub name: Option<Cow<'static, str>>,
     pub system: NodeSystem,
     pub system_name: Cow<'static, str>,
-    pub edges: Edges
+    pub edges: Edges,
+    pub slot_requirements: SlotInfos,
 }
-
 
 impl RenderNodeBuilder {
     pub fn new() -> Self {
-        let empty_system: NodeSystem = (Box::new(empty_node_system.system()) as Box<dyn System<In=RecordingNodeInput, Out=RecordingNodeOutput>>).into();
+        let empty_system: NodeSystem = (Box::new(empty_node_system.system())
+            as Box<dyn System<In = RecordingNodeInput, Out = RecordingNodeOutput>>)
+            .into();
         let system_name = empty_system.name();
         Self {
             id: NodeId::new(),
@@ -208,10 +201,11 @@ impl RenderNodeBuilder {
             system_name,
             system: empty_system,
             edges: Edges::default(),
+            slot_requirements: SlotInfos::default(),
         }
     }
 
-    pub fn with_system<S, In, Out, Param>(mut self, sys: S) -> Self 
+    pub fn with_system<S, In, Out, Param>(mut self, sys: S) -> Self
     where
         S: IntoSystem<In, Out, Param>,
         Box<dyn System<In = In, Out = Out>>: Into<NodeSystem>,
@@ -227,6 +221,11 @@ impl RenderNodeBuilder {
         self
     }
 
+    pub fn with_requirement(mut self, info: SlotInfo) -> Self {
+        self.slot_requirements.add_slot(info);
+        self
+    }
+
     pub fn build(self) -> RenderNode {
         RenderNode {
             id: self.id.clone(),
@@ -234,6 +233,7 @@ impl RenderNodeBuilder {
             system_name: self.system_name.clone(),
             system: self.system,
             edges: self.edges,
+            slot_requirements: self.slot_requirements,
         }
     }
 }

@@ -32,7 +32,6 @@ impl From<NodeId> for NodeLabel {
     }
 }
 
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RenderGraphLabel {
     Id(RenderGraphId),

@@ -1,20 +1,18 @@
 use bevy_ecs::{archetype::ArchetypeGeneration, world::World};
-use bevy_reflect::List;
 use bevy_utils::{
     tracing::{debug, info_span},
-    HashMap, HashSet,
+    HashSet,
 };
-use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 use wgpu::CommandEncoder;
 
 use crate::{
     render_graph::{
-        Edge, GraphContext, NodeId, NodeRunError, RenderNode, NodeSystem, RenderGraph,
-        RenderGraphId, RenderGraphs, RunSubGraph, SlotLabel, SlotType, SlotValue,
+        GraphContext, NodeId, NodeRunError, RenderGraph, RenderGraphId, RenderGraphs, SlotLabel,
+        SlotType,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderDevice,
 };
 
 use super::RenderQueue;
@@ -45,11 +43,11 @@ pub enum RenderGraphRunnerError {
 }
 
 /// A node that is ready to be run
-struct ExpandedNode {
-    graph: RenderGraphId,
-    id: NodeId,
-    context: GraphContext,
-}
+// struct ExpandedNode {
+//     graph: RenderGraphId,
+//     id: NodeId,
+//     context: GraphContext,
+// }
 
 pub(crate) struct RenderGraphRunner {
     archetype_generation: ArchetypeGeneration,
@@ -131,8 +129,6 @@ impl RenderGraphRunner {
         Ok(())
     }
 
-    fn expand(&mut self) {}
-
     fn run_graph(
         &mut self,
         world: &mut World,
@@ -163,7 +159,7 @@ impl RenderGraphRunner {
 
             // Check if all dependencies have finished running
             for dependency_node in get_graph_mut(render_graphs, graph_id)
-                .get_node_state(node_state_id)
+                .get_node(node_state_id)
                 .unwrap()
                 .edges
                 .dependencies
@@ -175,7 +171,7 @@ impl RenderGraphRunner {
                 }
             }
             let mut node_state = get_graph_mut(render_graphs, graph_id)
-                .get_node_state_mut(node_state_id)
+                .get_node_mut(node_state_id)
                 .unwrap();
 
             // Run node TODO: Error handling
@@ -186,7 +182,7 @@ impl RenderGraphRunner {
                     .run((command_encoder, graph_context.clone()), world)
                     .unwrap();
             } else if let Some(system) = node_state.sub_graph_run_system_mut() {
-                run_sub_graphs = Some(system.run((graph_context.clone()), world).unwrap());
+                run_sub_graphs = Some(system.run(graph_context.clone(), world).unwrap());
             }
             if let Some(sub_graph_runs) = run_sub_graphs {
                 for run_sub_graph in sub_graph_runs.drain() {
