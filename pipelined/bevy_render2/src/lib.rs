@@ -122,7 +122,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderGraphs>()
             .init_resource::<RenderGraphRunner>();
 
-        let main_render_graph: RenderGraph = Default::default();
+        let main_render_graph = RenderGraph::new("main_render_graph");
         render_app.insert_resource(MainRenderGraphId(*main_render_graph.id()));
 
         let mut render_graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();

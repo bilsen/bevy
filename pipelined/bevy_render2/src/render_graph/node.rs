@@ -113,6 +113,17 @@ impl NodeSystem {
             }
         }
     }
+
+    pub fn name(&self) -> Cow<'static, str> {
+        match self {
+            &NodeSystem::RecordingSystem(ref system) => {
+                system.name()
+            }
+            &NodeSystem::RunSubGraphSystem(ref system) => {
+                system.name()
+            }
+        }
+    }
 }
 
 impl From<SubGraphRunNodeSystem> for NodeSystem {
@@ -128,8 +139,9 @@ impl From<RecordingNodeSystem> for NodeSystem {
 
 pub struct NodeState {
     pub id: NodeId,
-    pub name: Option<Cow<'static, str>>,
+    pub name: Cow<'static, str>,
     pub system: NodeSystem,
+    pub system_name: Cow<'static, str>,
     pub edges: Edges,
 }
 
@@ -140,10 +152,11 @@ impl Debug for NodeState {
 }
 
 impl NodeState {
-    pub fn new(id: NodeId, system: NodeSystem) -> Self {
+    pub fn new(id: NodeId, system: NodeSystem, name: Cow<'static, str>) -> Self {
         NodeState {
             id,
-            name: None,
+            name,
+            system_name: system.name(),
             system,
             edges: Edges::default(),
         }
@@ -167,36 +180,15 @@ impl NodeState {
     pub fn system_mut(&mut self) -> &mut NodeSystem {
         &mut self.system
     }
-}
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum NodeLabel {
-    Id(NodeId),
-    Name(Cow<'static, str>),
-}
-
-impl From<&NodeLabel> for NodeLabel {
-    fn from(value: &NodeLabel) -> Self {
-        value.clone()
+    pub fn id(&self) -> &NodeId {
+        &self.id
     }
-}
 
-impl From<String> for NodeLabel {
-    fn from(value: String) -> Self {
-        NodeLabel::Name(value.into())
+    pub fn name(&self) -> &Cow<'static, str> {
+        &self.name
     }
-}
 
-impl From<&'static str> for NodeLabel {
-    fn from(value: &'static str) -> Self {
-        NodeLabel::Name(value.into())
-    }
-}
-
-impl From<NodeId> for NodeLabel {
-    fn from(value: NodeId) -> Self {
-        NodeLabel::Id(value)
-    }
 }
 
 pub fn empty_node_system(

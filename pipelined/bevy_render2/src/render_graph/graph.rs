@@ -76,10 +76,15 @@ impl RenderGraphs {
     pub fn iter_graphs_mut(&mut self) -> impl Iterator<Item = &mut RenderGraph> {
         self.graphs.iter_mut().map(|(_key, graph)| graph)
     }
+
+    pub fn iter_nodes(&self) -> impl Iterator<Item = &NodeState> {
+        self.iter_graphs().flat_map(|graph| graph.iter_nodes())
+    }
 }
 
 pub struct RenderGraph {
     id: RenderGraphId,
+    name: Cow<'static, str>,
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
 }
@@ -87,14 +92,27 @@ pub struct RenderGraph {
 impl Default for RenderGraph {
     fn default() -> Self {
         RenderGraph {
+            name: "Graph".into(),
             id: RenderGraphId::new(),
             nodes: HashMap::default(),
             node_names: HashMap::default(),
         }
     }
+
+    
+
 }
 
 impl RenderGraph {
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+        RenderGraph {
+            name: name.into(),
+            id: RenderGraphId::new(),
+            nodes: HashMap::default(),
+            node_names: HashMap::default(),
+        }
+    }
+
     pub fn update(&mut self, world: &mut World) {
         // Allow for nodes to have commands?
         // for node in self.nodes.values_mut() {
@@ -115,8 +133,9 @@ impl RenderGraph {
         let mut node_state = NodeState::new(
             id,
             (Box::new(system.system()) as Box<dyn System<In = In, Out = Out>>).into(),
+            name.clone()
         );
-        node_state.name = Some(name.clone());
+        node_state.name = name.clone();
         self.nodes.insert(id, node_state);
         self.node_names.insert(name, id);
         id
@@ -208,6 +227,10 @@ impl RenderGraph {
 
     pub fn id(&self) -> &RenderGraphId {
         &self.id
+    }
+
+    pub fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
     }
 }
 

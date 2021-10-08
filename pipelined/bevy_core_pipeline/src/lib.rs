@@ -90,12 +90,13 @@ impl Plugin for CorePipelinePlugin {
 
         let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
 
-        let mut draw_2d_graph = RenderGraph::default();
+        let mut draw_2d_graph = RenderGraph::new("draw_2d_graph");
         draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, main_pass_2d_node);
         let draw_2d_graph_id = *draw_2d_graph.id();
         graphs.insert(draw_2d_graph::NAME, draw_2d_graph);
 
-        let mut draw_3d_graph = RenderGraph::default();
+        let mut draw_3d_graph = RenderGraph::new("draw_3d_graph");
+        
         draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, main_pass_3d_node);
         let draw_3d_graph_id = *draw_3d_graph.id();
         graphs.insert(draw_3d_graph::NAME, draw_3d_graph);
