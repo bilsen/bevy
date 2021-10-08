@@ -7,6 +7,7 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::{
+    archetype::Archetype,
     system::{In, System},
     world::World,
 };
@@ -32,14 +33,16 @@ impl NodeId {
     }
 }
 
-pub type NodeResult = Result<(CommandEncoder, RunSubGraphs), NodeRunError>;
-pub type NodeInput = (CommandEncoder, GraphContext);
+// A system that records to the command buffer
+pub type RecordingNodeInput = (CommandEncoder, GraphContext);
+pub type RecordingNodeOutput = Result<CommandEncoder, RecordingError>;
+pub type RecordingNodeSystem = Box<dyn System<In = RecordingNodeInput, Out = RecordingNodeOutput>>;
 
-pub type BoxedNode = Box<dyn System<In = NodeInput, Out = NodeResult>>;
-
-pub trait NodeSystem: System<In = NodeInput, Out = NodeResult> {}
-
-impl<T: System<In = NodeInput, Out = NodeResult>> NodeSystem for T {}
+// A system that runs sub-graphs
+pub type SubGraphRunNodeInput = GraphContext;
+pub type SubGraphRunNodeOutput = Result<RunSubGraphs, SubGraphRunError>;
+pub type SubGraphRunNodeSystem =
+    Box<dyn System<In = SubGraphRunNodeInput, Out = SubGraphRunNodeOutput>>;
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum NodeRunError {
@@ -83,10 +86,50 @@ impl Edges {
     }
 }
 
+pub enum NodeSystem {
+    RunSubGraphSystem(SubGraphRunNodeSystem),
+    RecordingSystem(RecordingNodeSystem),
+}
+
+impl NodeSystem {
+    pub fn new_archetype(&mut self, archetype: &Archetype) {
+        match self {
+            &mut NodeSystem::RecordingSystem(ref mut system) => {
+                system.new_archetype(archetype);
+            }
+            &mut NodeSystem::RunSubGraphSystem(ref mut system) => {
+                system.new_archetype(archetype);
+            }
+        }
+    }
+
+    pub fn initialize(&mut self, world: &mut World) {
+        match self {
+            &mut NodeSystem::RecordingSystem(ref mut system) => {
+                system.initialize(world);
+            }
+            &mut NodeSystem::RunSubGraphSystem(ref mut system) => {
+                system.initialize(world);
+            }
+        }
+    }
+}
+
+impl From<SubGraphRunNodeSystem> for NodeSystem {
+    fn from(sys: SubGraphRunNodeSystem) -> Self {
+        NodeSystem::RunSubGraphSystem(sys)
+    }
+}
+impl From<RecordingNodeSystem> for NodeSystem {
+    fn from(sys: RecordingNodeSystem) -> Self {
+        NodeSystem::RecordingSystem(sys)
+    }
+}
+
 pub struct NodeState {
     pub id: NodeId,
     pub name: Option<Cow<'static, str>>,
-    pub system: BoxedNode,
+    pub system: NodeSystem,
     pub edges: Edges,
 }
 
@@ -97,16 +140,31 @@ impl Debug for NodeState {
 }
 
 impl NodeState {
-    pub fn new(id: NodeId, node: BoxedNode) -> Self {
+    pub fn new(id: NodeId, system: NodeSystem) -> Self {
         NodeState {
             id,
-            name: Some(node.name()),
-            system: node,
+            name: None,
+            system,
             edges: Edges::default(),
         }
     }
 
-    pub fn system_mut(&mut self) -> &mut BoxedNode {
+    pub fn recording_system_mut(&mut self) -> Option<&mut RecordingNodeSystem> {
+        if let NodeSystem::RecordingSystem(ref mut system) = self.system {
+            return Some(system);
+        } else {
+            return None;
+        }
+    }
+    pub fn sub_graph_run_system_mut(&mut self) -> Option<&mut SubGraphRunNodeSystem> {
+        if let NodeSystem::RunSubGraphSystem(ref mut system) = self.system {
+            return Some(system);
+        } else {
+            return None;
+        }
+    }
+
+    pub fn system_mut(&mut self) -> &mut NodeSystem {
         &mut self.system
     }
 }
@@ -141,6 +199,18 @@ impl From<NodeId> for NodeLabel {
     }
 }
 
-pub fn empty_node_system(In((render_context, _graph_context)): In<NodeInput>) -> NodeResult {
-    Ok((render_context, Default::default()))
+pub fn empty_node_system(
+    In((render_context, _graph_context)): In<RecordingNodeInput>,
+) -> RecordingNodeOutput {
+    Ok(render_context)
+}
+
+#[derive(Debug)]
+pub enum RecordingError {
+    Error,
+}
+
+#[derive(Debug)]
+pub enum SubGraphRunError {
+    Error,
 }

@@ -1,7 +1,9 @@
 use crate::{ClearColor, Transparent2d, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render2::{
-    render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, SlotInfo, SlotType},
+    render_graph::{
+        GraphContext, NodeRunError, RecordingNodeInput, RecordingNodeOutput, SlotInfo, SlotType,
+    },
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
     renderer::RenderContext,
@@ -81,11 +83,11 @@ use bevy_render2::{
 // }
 
 pub fn main_pass_2d_node(
-    In((mut command_encoder, graph)): In<NodeInput>,
+    In((mut command_encoder, graph)): In<RecordingNodeInput>,
     clear_color: Res<ClearColor>,
     world: &World,
     transparent: Query<&RenderPhase<Transparent2d>>,
-) -> NodeResult {
+) -> RecordingNodeOutput {
     let color_attachment_texture = graph.get_input_texture("color_attachment");
     let clear_color = world.get_resource::<ClearColor>().unwrap();
     let pass_descriptor = RenderPassDescriptor {
@@ -121,5 +123,5 @@ pub fn main_pass_2d_node(
         }
     }
 
-    Ok((command_encoder, Default::default()))
+    Ok((command_encoder))
 }

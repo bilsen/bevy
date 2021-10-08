@@ -1,7 +1,9 @@
 use crate::{ClearColor, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render2::{
-    render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, SlotInfo, SlotType},
+    render_graph::{
+        GraphContext, NodeRunError, RecordingNodeInput, RecordingNodeOutput, SlotInfo, SlotType,
+    },
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
@@ -12,11 +14,11 @@ use bevy_render2::{
 };
 
 pub fn main_pass_3d_node(
-    In((mut command_encoder, graph)): In<NodeInput>,
+    In((mut command_encoder, graph)): In<RecordingNodeInput>,
     clear_color: Res<ClearColor>,
     world: &World,
     transparent: Query<&RenderPhase<Transparent3d>>,
-) -> NodeResult {
+) -> RecordingNodeOutput {
     let color_attachment_texture = graph.get_input_texture("color_attachment");
     let depth_texture = graph.get_input_texture("depth");
     let pass_descriptor = RenderPassDescriptor {
@@ -58,5 +60,5 @@ pub fn main_pass_3d_node(
         }
     }
 
-    Ok((command_encoder, Default::default()))
+    Ok(command_encoder)
 }

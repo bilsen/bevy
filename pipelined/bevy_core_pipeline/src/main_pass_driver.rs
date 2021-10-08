@@ -1,11 +1,11 @@
 use crate::ViewDepthTexture;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{system::Res, world::World};
+use bevy_render2::render_graph::{SubGraphRunNodeInput, SubGraphRunNodeOutput};
 use bevy_render2::{
     camera::{CameraPlugin, ExtractedCamera, ExtractedCameraNames},
     render_graph::{
-        GraphContext, NodeInput, NodeResult, NodeRunError, RenderGraph, RenderGraphId,
-        RunSubGraphs, SlotValue,
+        GraphContext, NodeRunError, RenderGraph, RenderGraphId, RunSubGraphs, SlotValue,
     },
     renderer::RenderContext,
     view::ExtractedWindows,
@@ -17,14 +17,14 @@ pub struct Draw2dGraphId(pub RenderGraphId);
 pub struct Draw3dGraphId(pub RenderGraphId);
 
 pub fn main_pass_driver_node_system(
-    In((command_encoder, _graph)): In<NodeInput>,
+    In(graph): In<SubGraphRunNodeInput>,
     extracted_camera_names: Res<ExtractedCameraNames>,
     extracted_windows: Res<ExtractedWindows>,
     extracted_cameras: Query<&ExtractedCamera>,
     depth_textures: Query<&ViewDepthTexture>,
     draw_2d_id: Res<Draw2dGraphId>,
     draw_3d_id: Res<Draw3dGraphId>,
-) -> NodeResult {
+) -> SubGraphRunNodeOutput {
     let mut sub_graph_runs = RunSubGraphs::default();
 
     if let Some(camera_2d) = extracted_camera_names.entities.get(CameraPlugin::CAMERA_2D) {
@@ -61,5 +61,5 @@ pub fn main_pass_driver_node_system(
         );
     }
 
-    Ok((command_encoder, sub_graph_runs))
+    Ok(sub_graph_runs)
 }

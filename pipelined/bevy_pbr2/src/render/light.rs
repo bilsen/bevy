@@ -16,7 +16,9 @@ use bevy_render2::{
     mesh::Mesh,
     render_asset::RenderAssets,
     render_component::DynamicUniformIndex,
-    render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError, SlotInfo, SlotType},
+    render_graph::{
+        GraphContext, NodeRunError, RecordingNodeInput, RecordingNodeOutput, SlotInfo, SlotType,
+    },
     render_phase::{
         Draw, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, TrackedRenderPass,
     },
@@ -682,11 +684,11 @@ impl PhaseItem for Shadow {
 }
 
 pub fn shadow_pass_node_system(
-    In((mut command_encoder, graph)): In<NodeInput>,
+    In((mut command_encoder, graph)): In<RecordingNodeInput>,
     main_view_query: Query<&ViewLights>,
     view_light_query: Query<(&ViewLight, &RenderPhase<Shadow>)>,
     world: &World,
-) -> NodeResult {
+) -> RecordingNodeOutput {
     let view_entity = *graph.get_input_entity("view");
     if let Ok(view_lights) = main_view_query.get(view_entity) {
         for view_light_entity in view_lights.lights.iter().copied() {
@@ -717,7 +719,7 @@ pub fn shadow_pass_node_system(
         }
     }
 
-    Ok((command_encoder, Default::default()))
+    Ok(command_encoder)
 }
 
 pub struct DrawShadowMesh {

@@ -12,7 +12,7 @@ use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
     render_asset::RenderAssets,
-    render_graph::{GraphContext, NodeInput, NodeResult, NodeRunError},
+    render_graph::{GraphContext, NodeRunError, RecordingNodeInput, RecordingNodeOutput},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
@@ -377,14 +377,14 @@ pub fn queue_sprites(
 
 // TODO: this logic can be moved to prepare_sprites once wgpu::Queue is exposed directly
 pub fn sprite_node_system(
-    In((mut command_encoder, _graph)): In<NodeInput>,
+    In((mut command_encoder, _graph)): In<RecordingNodeInput>,
     sprite_meta: Res<SpriteMeta>,
-) -> NodeResult {
+) -> RecordingNodeOutput {
     {
         sprite_meta.vertices.write_to_buffer(&mut command_encoder);
         sprite_meta.indices.write_to_buffer(&mut command_encoder);
     }
-    Ok((command_encoder, Default::default()))
+    Ok(command_encoder)
 }
 
 pub struct DrawSprite {

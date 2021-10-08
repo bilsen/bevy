@@ -11,8 +11,8 @@ use wgpu::CommandEncoder;
 
 use crate::{
     render_graph::{
-        Edge, GraphContext, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphId,
-        RenderGraphs, RunSubGraph, SlotLabel, SlotType, SlotValue,
+        Edge, GraphContext, NodeId, NodeRunError, NodeState, NodeSystem, RenderGraph,
+        RenderGraphId, RenderGraphs, RunSubGraph, SlotLabel, SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -42,6 +42,13 @@ pub enum RenderGraphRunnerError {
         expected: SlotType,
         actual: SlotType,
     },
+}
+
+/// A node that is ready to be run
+struct ExpandedNode {
+    graph: RenderGraphId,
+    id: NodeId,
+    context: GraphContext,
 }
 
 pub(crate) struct RenderGraphRunner {
@@ -124,6 +131,8 @@ impl RenderGraphRunner {
         Ok(())
     }
 
+    fn expand(&mut self) {}
+
     fn run_graph(
         &mut self,
         world: &mut World,
@@ -170,21 +179,26 @@ impl RenderGraphRunner {
                 .unwrap();
 
             // Run node TODO: Error handling
-            let (output_encoder, sub_graph_runs) = node_state
-                .system
-                .run((command_encoder, graph_context.clone()), world)
-                .unwrap();
 
-            command_encoder = output_encoder;
-            for run_sub_graph in sub_graph_runs.drain() {
-                command_encoder = self.run_graph(
-                    world,
-                    render_graphs,
-                    &run_sub_graph.id,
-                    None,
-                    command_encoder,
-                    run_sub_graph.context,
-                );
+            let mut run_sub_graphs = None;
+            if let Some(system) = node_state.recording_system_mut() {
+                command_encoder = system
+                    .run((command_encoder, graph_context.clone()), world)
+                    .unwrap();
+            } else if let Some(system) = node_state.sub_graph_run_system_mut() {
+                run_sub_graphs = Some(system.run((graph_context.clone()), world).unwrap());
+            }
+            if let Some(sub_graph_runs) = run_sub_graphs {
+                for run_sub_graph in sub_graph_runs.drain() {
+                    command_encoder = self.run_graph(
+                        world,
+                        render_graphs,
+                        &run_sub_graph.id,
+                        None,
+                        command_encoder,
+                        run_sub_graph.context,
+                    );
+                }
             }
             finished_nodes.insert(node_state_id);
             for output_node_id in

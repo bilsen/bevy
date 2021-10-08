@@ -4,12 +4,15 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::{prelude::World, system::IntoSystem};
+use bevy_ecs::{
+    prelude::World,
+    system::{IntoSystem, System},
+};
 use bevy_reflect::{List, Uuid};
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
-use super::{BoxedNode, NodeInput, NodeResult};
+use super::NodeSystem;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct RenderGraphId(Uuid);
@@ -93,18 +96,26 @@ impl Default for RenderGraph {
 
 impl RenderGraph {
     pub fn update(&mut self, world: &mut World) {
-        for node in self.nodes.values_mut() {
-            node.system.apply_buffers(world)
-        }
+        // Allow for nodes to have commands?
+        // for node in self.nodes.values_mut() {
+        //     node.system.apply_buffers(world)
+        // }
     }
-    pub fn add_node<T>(
+    pub fn add_node<S, In, Out, Param>(
         &mut self,
         name: impl Into<Cow<'static, str>>,
-        node: impl IntoSystem<NodeInput, NodeResult, T>,
-    ) -> NodeId {
+        system: S,
+    ) -> NodeId
+    where
+        S: IntoSystem<In, Out, Param>,
+        Box<dyn System<In = In, Out = Out>>: Into<NodeSystem>,
+    {
         let id = NodeId::new();
         let name = name.into();
-        let mut node_state = NodeState::new(id, Box::new(node.system()));
+        let mut node_state = NodeState::new(
+            id,
+            (Box::new(system.system()) as Box<dyn System<In = In, Out = Out>>).into(),
+        );
         node_state.name = Some(name.clone());
         self.nodes.insert(id, node_state);
         self.node_names.insert(name, id);
