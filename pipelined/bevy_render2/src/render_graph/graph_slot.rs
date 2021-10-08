@@ -46,7 +46,7 @@ impl From<Entity> for SlotValue {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum SlotType {
     Buffer,
     TextureView,
@@ -90,7 +90,7 @@ impl From<usize> for SlotLabel {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct SlotInfo {
     pub name: Cow<'static, str>,
     pub slot_type: SlotType,

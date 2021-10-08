@@ -1,13 +1,13 @@
 use crate::{
-    render_graph::{NodeState, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
+    render_graph::{RenderNode, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
     render_resource::{Buffer, Sampler, TextureView},
 };
 use bevy_ecs::entity::Entity;
 use bevy_utils::HashMap;
-use std::borrow::Cow;
+use std::{borrow::Cow, convert::TryFrom};
 use thiserror::Error;
 
-use super::RenderGraphId;
+use super::{RenderGraphId, SlotInfo};
 
 pub struct RunSubGraph {
     pub id: RenderGraphId,
@@ -38,21 +38,17 @@ impl RunSubGraphs {
 
 #[derive(Clone, Default)]
 pub struct GraphContext {
-    inputs: HashMap<&'static str, SlotValue>,
+    inputs: HashMap<SlotInfo, SlotValue>,
 }
 
 impl GraphContext {
-    pub fn new(inputs: HashMap<&'static str, SlotValue>) -> Self {
+    pub fn new(inputs: HashMap<SlotInfo, SlotValue>) -> Self {
         Self { inputs }
-    }
-
-    pub fn get_input(&self, name: impl Into<&'static str>) -> &SlotValue {
-        return self.inputs.get(name.into()).expect("No input value found");
     }
 
     pub fn get_input_entity(&self, name: impl Into<&'static str>) -> &Entity {
         if let SlotValue::Entity(entity) =
-            self.inputs.get(name.into()).expect("No input value found")
+            self.inputs.get(&SlotInfo::new(name.into(), SlotType::Entity)).expect("No input value found")
         {
             return entity;
         } else {
@@ -62,7 +58,7 @@ impl GraphContext {
 
     pub fn get_input_texture(&self, name: impl Into<&'static str>) -> &TextureView {
         if let SlotValue::TextureView(texture_view) =
-            self.inputs.get(name.into()).expect("No input value found")
+            self.inputs.get(&SlotInfo::new(name.into(), SlotType::TextureView)).expect("No input value found")
         {
             return texture_view;
         } else {
@@ -71,10 +67,11 @@ impl GraphContext {
     }
 }
 
-impl<T: IntoIterator<Item = (&'static str, SlotValue)>> From<T> for GraphContext {
+impl<I: Into<Cow<'static, str>>, T: IntoIterator<Item = (I, SlotValue)>> From<T> for GraphContext {
     fn from(iterator: T) -> Self {
+
         Self {
-            inputs: iterator.into_iter().collect(),
+            inputs: iterator.into_iter().map(|(label, value)| (SlotInfo::new(label.into(), value.slot_type()), value)).collect(),
         }
     }
 }

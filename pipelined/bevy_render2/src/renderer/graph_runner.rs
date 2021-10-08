@@ -11,7 +11,7 @@ use wgpu::CommandEncoder;
 
 use crate::{
     render_graph::{
-        Edge, GraphContext, NodeId, NodeRunError, NodeState, NodeSystem, RenderGraph,
+        Edge, GraphContext, NodeId, NodeRunError, RenderNode, NodeSystem, RenderGraph,
         RenderGraphId, RenderGraphs, RunSubGraph, SlotLabel, SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},

@@ -1,6 +1,6 @@
 use crate::{
     render_graph::{
-        Edge, GraphContext, NodeId, NodeLabel, NodeRunError, NodeState, RenderGraphError,
+        Edge, GraphContext, NodeId, NodeLabel, NodeRunError, RenderNode, RenderGraphError,
     },
     renderer::RenderContext,
 };
@@ -12,7 +12,7 @@ use bevy_reflect::{List, Uuid};
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
-use super::NodeSystem;
+use super::{NodeSystem, SlotInfos};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct RenderGraphId(Uuid);
@@ -77,7 +77,7 @@ impl RenderGraphs {
         self.graphs.iter_mut().map(|(_key, graph)| graph)
     }
 
-    pub fn iter_nodes(&self) -> impl Iterator<Item = &NodeState> {
+    pub fn iter_nodes(&self) -> impl Iterator<Item = &RenderNode> {
         self.iter_graphs().flat_map(|graph| graph.iter_nodes())
     }
 }
@@ -85,8 +85,9 @@ impl RenderGraphs {
 pub struct RenderGraph {
     id: RenderGraphId,
     name: Cow<'static, str>,
-    nodes: HashMap<NodeId, NodeState>,
+    nodes: HashMap<NodeId, RenderNode>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
+    slot_infos: SlotInfos
 }
 
 impl Default for RenderGraph {
@@ -96,6 +97,7 @@ impl Default for RenderGraph {
             id: RenderGraphId::new(),
             nodes: HashMap::default(),
             node_names: HashMap::default(),
+            slot_infos: SlotInfos::default()
         }
     }
 
@@ -107,9 +109,7 @@ impl RenderGraph {
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         RenderGraph {
             name: name.into(),
-            id: RenderGraphId::new(),
-            nodes: HashMap::default(),
-            node_names: HashMap::default(),
+            ..Default::default()
         }
     }
 
@@ -119,24 +119,23 @@ impl RenderGraph {
         //     node.system.apply_buffers(world)
         // }
     }
-    pub fn add_node<S, In, Out, Param>(
+    pub fn add_node(
         &mut self,
-        name: impl Into<Cow<'static, str>>,
-        system: S,
+        node: RenderNode,
     ) -> NodeId
-    where
-        S: IntoSystem<In, Out, Param>,
-        Box<dyn System<In = In, Out = Out>>: Into<NodeSystem>,
     {
-        let id = NodeId::new();
-        let name = name.into();
-        let mut node_state = NodeState::new(
-            id,
-            (Box::new(system.system()) as Box<dyn System<In = In, Out = Out>>).into(),
-            name.clone()
-        );
-        node_state.name = name.clone();
-        self.nodes.insert(id, node_state);
+        let id = *node.id();
+        let name = node.name().clone();
+
+        for dependency in node.edges.iter_dependencies() {
+            self.add_edge(*dependency, id).unwrap();
+        }
+
+        for dependant in node.edges.iter_dependants() {
+            self.add_edge(id, *dependant).unwrap();
+        }
+
+        self.nodes.insert(id, node);
         self.node_names.insert(name, id);
         id
     }
@@ -144,7 +143,7 @@ impl RenderGraph {
     pub fn get_node_state(
         &self,
         label: impl Into<NodeLabel>,
-    ) -> Result<&NodeState, RenderGraphError> {
+    ) -> Result<&RenderNode, RenderGraphError> {
         let label = label.into();
         let node_id = self.get_node_id(&label)?;
         self.nodes
@@ -155,7 +154,7 @@ impl RenderGraph {
     pub fn get_node_state_mut(
         &mut self,
         label: impl Into<NodeLabel>,
-    ) -> Result<&mut NodeState, RenderGraphError> {
+    ) -> Result<&mut RenderNode, RenderGraphError> {
         let label = label.into();
         let node_id = self.get_node_id(&label)?;
         self.nodes
@@ -202,11 +201,11 @@ impl RenderGraph {
         self.nodes.get(id).unwrap().edges.iter_dependencies()
     }
 
-    pub fn iter_nodes(&self) -> impl Iterator<Item = &NodeState> {
+    pub fn iter_nodes(&self) -> impl Iterator<Item = &RenderNode> {
         self.nodes.values()
     }
 
-    pub fn iter_nodes_mut(&mut self) -> impl Iterator<Item = &mut NodeState> {
+    pub fn iter_nodes_mut(&mut self) -> impl Iterator<Item = &mut RenderNode> {
         self.nodes.values_mut()
     }
 

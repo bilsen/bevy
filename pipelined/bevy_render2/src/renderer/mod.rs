@@ -5,7 +5,7 @@ use bevy_utils::tracing::info;
 pub use graph_runner::*;
 pub use render_device::*;
 
-use crate::render_graph::{MainRenderGraphId, RenderGraph, RenderGraphs};
+use crate::render_graph::{MainRenderGraphId, RenderGraphs};
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
 use wgpu::{BackendBit, CommandEncoder, DeviceDescriptor, Instance, Queue, RequestAdapterOptions};

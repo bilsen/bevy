@@ -10,19 +10,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_render2::{
-    camera::{ActiveCameras, CameraPlugin},
-    color::Color,
-    render_graph::{
-        empty_node_system, MainRenderGraphId, RenderGraph, RenderGraphs, SlotInfo, SlotType,
-    },
-    render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
-    render_resource::*,
-    renderer::RenderDevice,
-    texture::{Image, TextureCache},
-    view::ExtractedView,
-    RenderApp, RenderStage, RenderWorld,
-};
+use bevy_render2::{RenderApp, RenderStage, RenderWorld, camera::{ActiveCameras, CameraPlugin}, color::Color, render_graph::{MainRenderGraphId, RenderGraph, RenderGraphs, RenderNodeBuilder, SlotInfo, SlotType, empty_node_system}, render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase}, render_resource::*, renderer::RenderDevice, texture::{Image, TextureCache}, view::ExtractedView};
 
 /// Resource that configures the clear color
 #[derive(Clone, Debug)]
@@ -91,20 +79,37 @@ impl Plugin for CorePipelinePlugin {
         let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
 
         let mut draw_2d_graph = RenderGraph::new("draw_2d_graph");
-        draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, main_pass_2d_node);
+        draw_2d_graph.add_node(RenderNodeBuilder::new()
+            .with_name(draw_2d_graph::node::MAIN_PASS)
+            .with_system(main_pass_2d_node)
+            .build()
+        );
+
         let draw_2d_graph_id = *draw_2d_graph.id();
         graphs.insert(draw_2d_graph::NAME, draw_2d_graph);
 
         let mut draw_3d_graph = RenderGraph::new("draw_3d_graph");
         
-        draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, main_pass_3d_node);
+        draw_3d_graph.add_node(RenderNodeBuilder::new()
+            .with_name(draw_3d_graph::node::MAIN_PASS)
+            .with_system(main_pass_3d_node)
+            .build());
         let draw_3d_graph_id = *draw_3d_graph.id();
         graphs.insert(draw_3d_graph::NAME, draw_3d_graph);
 
         let main_graph = graphs.get_mut(&main_graph_id).unwrap();
 
-        main_graph.add_node(node::MAIN_PASS_DRIVER, main_pass_driver_node_system);
-        main_graph.add_node(node::MAIN_PASS_DEPENDENCIES, empty_node_system);
+        main_graph.add_node(RenderNodeBuilder::new()
+        .with_name(node::MAIN_PASS_DRIVER)
+        .with_system(main_pass_driver_node_system)
+        .build());
+        
+        main_graph.add_node(RenderNodeBuilder::new()
+            .with_name(node::MAIN_PASS_DEPENDENCIES)
+            .with_system(empty_node_system)
+            .build()
+        );
+        
         main_graph
             .add_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
             .unwrap();

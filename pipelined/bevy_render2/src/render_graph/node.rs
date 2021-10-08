@@ -6,12 +6,8 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::{
-    archetype::Archetype,
-    system::{In, System},
-    world::World,
-};
-use bevy_utils::Uuid;
+use bevy_ecs::{archetype::Archetype, system::{In, IntoSystem, System}, world::World};
+use bevy_utils::{HashSet, Uuid};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
@@ -56,17 +52,17 @@ pub enum NodeRunError {
 
 #[derive(Debug, Default)]
 pub struct Edges {
-    pub dependencies: Vec<NodeId>,
-    pub dependants: Vec<NodeId>,
+    pub dependencies: HashSet<NodeId>,
+    pub dependants: HashSet<NodeId>,
 }
 
 impl Edges {
     pub(crate) fn add_dependency(&mut self, node: NodeId) {
-        self.dependencies.push(node);
+        self.dependencies.insert(node);
     }
 
     pub(crate) fn add_dependant(&mut self, node: NodeId) {
-        self.dependants.push(node);
+        self.dependants.insert(node);
     }
 
     pub fn has_dependency(&self, edge: &NodeId) -> bool {
@@ -137,7 +133,8 @@ impl From<RecordingNodeSystem> for NodeSystem {
     }
 }
 
-pub struct NodeState {
+
+pub struct RenderNode {
     pub id: NodeId,
     pub name: Cow<'static, str>,
     pub system: NodeSystem,
@@ -145,15 +142,15 @@ pub struct NodeState {
     pub edges: Edges,
 }
 
-impl Debug for NodeState {
+impl Debug for RenderNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{:?} ({:?})", self.id, self.name)
     }
 }
 
-impl NodeState {
+impl RenderNode {
     pub fn new(id: NodeId, system: NodeSystem, name: Cow<'static, str>) -> Self {
-        NodeState {
+        RenderNode {
             id,
             name,
             system_name: system.name(),
@@ -189,6 +186,56 @@ impl NodeState {
         &self.name
     }
 
+}
+
+
+pub struct RenderNodeBuilder {
+    pub id: NodeId,
+    pub name: Option<Cow<'static, str>>,
+    pub system: NodeSystem,
+    pub system_name: Cow<'static, str>,
+    pub edges: Edges
+}
+
+
+impl RenderNodeBuilder {
+    pub fn new() -> Self {
+        let empty_system: NodeSystem = (Box::new(empty_node_system.system()) as Box<dyn System<In=RecordingNodeInput, Out=RecordingNodeOutput>>).into();
+        let system_name = empty_system.name();
+        Self {
+            id: NodeId::new(),
+            name: None,
+            system_name,
+            system: empty_system,
+            edges: Edges::default(),
+        }
+    }
+
+    pub fn with_system<S, In, Out, Param>(mut self, sys: S) -> Self 
+    where
+        S: IntoSystem<In, Out, Param>,
+        Box<dyn System<In = In, Out = Out>>: Into<NodeSystem>,
+    {
+        let system = (Box::new(sys.system()) as Box<dyn System<In = In, Out = Out>>).into();
+        self.system_name = system.name();
+        self.system = system;
+        self
+    }
+
+    pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    pub fn build(self) -> RenderNode {
+        RenderNode {
+            id: self.id.clone(),
+            name: self.name.unwrap_or("<unnamed>".into()),
+            system_name: self.system_name.clone(),
+            system: self.system,
+            edges: self.edges,
+        }
+    }
 }
 
 pub fn empty_node_system(
