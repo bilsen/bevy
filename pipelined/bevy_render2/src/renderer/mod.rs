@@ -17,10 +17,10 @@ pub fn render_system(world: &mut World) {
         world.resource_scope(|world, mut graph_runner: Mut<RenderGraphRunner>| {
             let main_graph_id = world.get_resource::<MainRenderGraphId>().unwrap().0;
             graph_runner
-                .run_and_submit(world, &mut graphs, main_graph_id)
+                .run_and_submit(world, &mut graphs, &main_graph_id)
                 .unwrap();
 
-            graphs.get_mut(&main_graph_id).unwrap().update(world);
+            graphs.get_mut(main_graph_id).unwrap().update(world);
         });
     });
 }

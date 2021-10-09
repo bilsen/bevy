@@ -1,16 +1,12 @@
 use crate::{ClearColor, Transparent3d};
 use bevy_ecs::prelude::*;
 use bevy_render2::{
-    render_graph::{
-        GraphContext, NodeRunError, RecordingNodeInput, RecordingNodeOutput, SlotInfo, SlotType,
-    },
+    render_graph::{RecordingNodeInput, RecordingNodeOutput},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{
         LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
     },
-    renderer::RenderContext,
-    view::ExtractedView,
 };
 
 pub fn main_pass_3d_node(

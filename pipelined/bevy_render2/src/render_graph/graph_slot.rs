@@ -1,7 +1,10 @@
 use bevy_ecs::entity::Entity;
+use bevy_utils::HashMap;
 use std::borrow::Cow;
 
 use crate::render_resource::{Buffer, Sampler, TextureView};
+
+use super::GraphContext;
 
 #[derive(Debug, Clone)]
 pub enum SlotValue {
@@ -54,66 +57,18 @@ pub enum SlotType {
     Entity,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum SlotLabel {
-    Index(usize),
-    Name(Cow<'static, str>),
-}
-
-impl From<&SlotLabel> for SlotLabel {
-    fn from(value: &SlotLabel) -> Self {
-        value.clone()
-    }
-}
-
-impl From<String> for SlotLabel {
-    fn from(value: String) -> Self {
-        SlotLabel::Name(value.into())
-    }
-}
-
-impl From<&'static str> for SlotLabel {
-    fn from(value: &'static str) -> Self {
-        SlotLabel::Name(value.into())
-    }
-}
-
-impl From<Cow<'static, str>> for SlotLabel {
-    fn from(value: Cow<'static, str>) -> Self {
-        SlotLabel::Name(value.clone())
-    }
-}
-
-impl From<usize> for SlotLabel {
-    fn from(value: usize) -> Self {
-        SlotLabel::Index(value)
-    }
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct SlotInfo {
-    pub name: Cow<'static, str>,
-    pub slot_type: SlotType,
-}
-
-impl SlotInfo {
-    pub fn new(name: impl Into<Cow<'static, str>>, slot_type: SlotType) -> Self {
-        SlotInfo {
-            name: name.into(),
-            slot_type,
-        }
-    }
-}
-
 #[derive(Default, Debug)]
 pub struct SlotInfos {
-    slots: Vec<SlotInfo>,
+    slots: HashMap<Cow<'static, str>, SlotType>,
 }
 
-impl<T: IntoIterator<Item = SlotInfo>> From<T> for SlotInfos {
+impl<N: Into<Cow<'static, str>>, T: IntoIterator<Item = (N, SlotType)>> From<T> for SlotInfos {
     fn from(slots: T) -> Self {
         SlotInfos {
-            slots: slots.into_iter().collect(),
+            slots: slots
+                .into_iter()
+                .map(|(name, slot_type)| (name.into(), slot_type))
+                .collect(),
         }
     }
 }
@@ -129,36 +84,27 @@ impl SlotInfos {
         self.slots.is_empty()
     }
 
-    pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Option<&SlotInfo> {
-        let label = label.into();
-        let index = self.get_slot_index(&label)?;
-        self.slots.get(index)
+    pub fn get_slot_type(&self, name: impl Into<Cow<'static, str>>) -> Option<&SlotType> {
+        self.slots.get(&name.into())
+    }
+    pub fn add_slot(&mut self, name: impl Into<Cow<'static, str>>, slot_type: SlotType) {
+        self.slots.insert(name.into(), slot_type);
     }
 
-    pub fn get_slot_mut(&mut self, label: impl Into<SlotLabel>) -> Option<&mut SlotInfo> {
-        let label = label.into();
-        let index = self.get_slot_index(&label)?;
-        self.slots.get_mut(index)
-    }
-
-    pub fn get_slot_index(&self, label: impl Into<SlotLabel>) -> Option<usize> {
-        let label = label.into();
-        match label {
-            SlotLabel::Index(index) => Some(index),
-            SlotLabel::Name(ref name) => self
-                .slots
-                .iter()
-                .enumerate()
-                .find(|(_i, s)| s.name == *name)
-                .map(|(i, _s)| i),
-        }
-    }
-
-    pub fn add_slot(&mut self, info: SlotInfo) {
-        self.slots.push(info);
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &SlotInfo> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Cow<'static, str>, &SlotType)> {
         self.slots.iter()
+    }
+
+    pub fn matches(&self, context: &GraphContext) -> bool {
+        for (name, value) in context.iter() {
+            if let Some(slot_type) = self.slots.get(name) {
+                if slot_type != &value.slot_type() {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        true
     }
 }

@@ -1,12 +1,9 @@
-use crate::{
-    render_graph::{SlotType, SlotValue},
-    render_resource::TextureView,
-};
+use crate::{render_graph::SlotValue, render_resource::TextureView};
 use bevy_ecs::entity::Entity;
 use bevy_utils::HashMap;
 use std::borrow::Cow;
 
-use super::{RenderGraphId, SlotInfo};
+use super::RenderGraphId;
 
 pub struct RunSubGraph {
     pub id: RenderGraphId,
@@ -35,38 +32,42 @@ impl RunSubGraphs {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Default, Clone)]
 pub struct GraphContext {
-    inputs: HashMap<SlotInfo, SlotValue>,
+    inputs: HashMap<Cow<'static, str>, SlotValue>,
 }
 
 impl GraphContext {
-    pub fn new(inputs: HashMap<SlotInfo, SlotValue>) -> Self {
+    pub fn new(inputs: HashMap<Cow<'static, str>, SlotValue>) -> Self {
         Self { inputs }
     }
 
     pub fn get_input_entity(&self, name: impl Into<&'static str>) -> &Entity {
-        if let SlotValue::Entity(entity) = self
-            .inputs
-            .get(&SlotInfo::new(name.into(), SlotType::Entity))
-            .expect("No input value found")
+        if let SlotValue::Entity(entity) =
+            self.inputs.get(name.into()).expect("No input value found")
         {
-            return entity;
+            entity
         } else {
             panic!("Wrong input type")
         }
     }
 
     pub fn get_input_texture(&self, name: impl Into<&'static str>) -> &TextureView {
-        if let SlotValue::TextureView(texture_view) = self
-            .inputs
-            .get(&SlotInfo::new(name.into(), SlotType::TextureView))
-            .expect("No input value found")
+        if let SlotValue::TextureView(texture_view) =
+            self.inputs.get(name.into()).expect("No input value found")
         {
-            return texture_view;
+            texture_view
         } else {
             panic!("Wrong input type")
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&Cow<'static, str>, &SlotValue)> {
+        self.inputs.iter()
+    }
+
+    pub fn iter_names(&self) -> impl Iterator<Item = &Cow<'static, str>> {
+        self.inputs.keys()
     }
 }
 
@@ -75,7 +76,7 @@ impl<I: Into<Cow<'static, str>>, T: IntoIterator<Item = (I, SlotValue)>> From<T>
         Self {
             inputs: iterator
                 .into_iter()
-                .map(|(label, value)| (SlotInfo::new(label.into(), value.slot_type()), value))
+                .map(|(label, value)| (label.into(), value))
                 .collect(),
         }
     }

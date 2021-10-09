@@ -16,14 +16,12 @@ use bevy_render2::{
     mesh::Mesh,
     render_asset::RenderAssets,
     render_component::DynamicUniformIndex,
-    render_graph::{
-        GraphContext, NodeRunError, RecordingNodeInput, RecordingNodeOutput, SlotInfo, SlotType,
-    },
+    render_graph::{RecordingNodeInput, RecordingNodeOutput},
     render_phase::{
         Draw, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase, TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderDevice, RenderQueue},
     shader::Shader,
     texture::*,
     view::{ExtractedView, ViewUniformOffset, ViewUniforms},
@@ -722,6 +720,7 @@ pub fn shadow_pass_node_system(
     Ok(command_encoder)
 }
 
+#[allow(clippy::type_complexity)]
 pub struct DrawShadowMesh {
     params: SystemState<(
         SRes<ShadowShaders>,

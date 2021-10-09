@@ -44,7 +44,7 @@ bitflags::bitflags! {
         const UNINITIALIZED              = 0xFFFF;
     }
 }
-
+#[allow(clippy::type_complexity)]
 pub fn extract_meshes(
     mut commands: Commands,
     mut previous_caster_len: Local<usize>,
@@ -487,7 +487,7 @@ pub struct PbrViewBindGroup {
     pub value: BindGroup,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn queue_meshes(
     mut commands: Commands,
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,

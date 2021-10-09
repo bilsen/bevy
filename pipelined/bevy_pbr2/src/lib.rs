@@ -14,7 +14,7 @@ use bevy_core_pipeline::Transparent3d;
 use bevy_ecs::prelude::*;
 use bevy_render2::{
     render_component::{ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::{RenderGraph, RenderGraphs, RenderNodeBuilder},
+    render_graph::{RenderGraphs, RenderNodeBuilder, SlotType},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     RenderApp, RenderStage,
 };
@@ -72,9 +72,10 @@ impl Plugin for PbrPlugin {
             .get_mut(bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(
-            RenderNodeBuilder::new()
+            RenderNodeBuilder::default()
                 .with_name(draw_3d_graph::node::SHADOW_PASS)
                 .with_system(shadow_pass_node_system)
+                .with_requirement("view", SlotType::Entity)
                 .build(),
         );
         draw_3d_graph

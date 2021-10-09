@@ -1,10 +1,10 @@
-use crate::render_graph::{Edge, NodeId, NodeLabel, RenderGraphError, RenderNode};
+use crate::render_graph::{NodeId, NodeLabel, RenderGraphError, RenderNode};
 use bevy_ecs::prelude::World;
 use bevy_reflect::Uuid;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
-use super::SlotInfos;
+use super::{GraphContext, RenderGraphLabel, SlotInfos};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct RenderGraphId(Uuid);
@@ -25,37 +25,27 @@ pub struct MainRenderGraphId(pub RenderGraphId);
 #[derive(Default)]
 pub struct RenderGraphs {
     graphs: HashMap<RenderGraphId, RenderGraph>,
-    names: HashMap<&'static str, RenderGraphId>,
-}
-
-pub trait IntoGraphId {
-    fn into_id(&self, graphs: &RenderGraphs) -> RenderGraphId;
-}
-
-impl<'a> IntoGraphId for &'a RenderGraphId {
-    fn into_id(&self, _graphs: &RenderGraphs) -> RenderGraphId {
-        *self.clone()
-    }
-}
-
-impl IntoGraphId for &'static str {
-    fn into_id(&self, graphs: &RenderGraphs) -> RenderGraphId {
-        *graphs
-            .names
-            .get(self)
-            .expect("No such name in render graph")
-    }
+    names: HashMap<Cow<'static, str>, RenderGraphId>,
 }
 
 impl RenderGraphs {
-    pub fn get(&self, id: impl IntoGraphId) -> Option<&RenderGraph> {
-        self.graphs.get(&id.into_id(self))
-    }
-    pub fn get_mut(&mut self, id: impl IntoGraphId) -> Option<&mut RenderGraph> {
-        self.graphs.get_mut(&id.into_id(self))
+    pub fn get(&self, label: impl Into<RenderGraphLabel>) -> Option<&RenderGraph> {
+        let id = self.get_id(label)?;
+        self.graphs.get(&id)
     }
 
-    pub fn insert(&mut self, name: impl Into<&'static str>, graph: RenderGraph) {
+    pub fn get_id(&self, label: impl Into<RenderGraphLabel>) -> Option<RenderGraphId> {
+        match label.into() {
+            RenderGraphLabel::Id(id) => Some(id),
+            RenderGraphLabel::Name(ref name) => self.names.get(name).cloned(),
+        }
+    }
+    pub fn get_mut(&mut self, label: impl Into<RenderGraphLabel>) -> Option<&mut RenderGraph> {
+        let id = self.get_id(label)?;
+        self.graphs.get_mut(&id)
+    }
+
+    pub fn insert(&mut self, name: impl Into<Cow<'static, str>>, graph: RenderGraph) {
         let id = graph.id;
         self.graphs.insert(id, graph);
         self.names.insert(name.into(), id);
@@ -80,7 +70,7 @@ pub struct RenderGraph {
     nodes: HashMap<NodeId, RenderNode>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
     /// What is required to run this graph
-    slot_infos: SlotInfos,
+    slot_requirements: SlotInfos,
 }
 
 impl Default for RenderGraph {
@@ -90,7 +80,7 @@ impl Default for RenderGraph {
             id: RenderGraphId::new(),
             nodes: HashMap::default(),
             node_names: HashMap::default(),
-            slot_infos: SlotInfos::default(),
+            slot_requirements: SlotInfos::default(),
         }
     }
 }
@@ -105,9 +95,9 @@ impl RenderGraph {
 
     pub fn update(&mut self, world: &mut World) {
         // Allow for nodes to have commands?
-        // for node in self.nodes.values_mut() {
-        //     node.system.apply_buffers(world)
-        // }
+        for node in self.nodes.values_mut() {
+            node.system.apply_buffers(world)
+        }
     }
     pub fn add_node(&mut self, node: RenderNode) -> NodeId {
         let id = *node.id();
@@ -196,6 +186,10 @@ impl RenderGraph {
 
     pub fn name(&self) -> Cow<'static, str> {
         self.name.clone()
+    }
+
+    pub fn slots_matches(&self, context: &GraphContext) -> bool {
+        self.slot_requirements.matches(context)
     }
 }
 

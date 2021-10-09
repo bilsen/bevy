@@ -18,7 +18,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_core_pipeline::Transparent2d;
 use bevy_render2::{
-    render_graph::{MainRenderGraphId, RenderGraph, RenderGraphs, RenderNodeBuilder},
+    render_graph::{MainRenderGraphId, RenderGraphs, RenderNodeBuilder},
     render_phase::DrawFunctions,
     RenderApp, RenderStage,
 };
@@ -51,12 +51,11 @@ impl Plugin for SpritePlugin {
             .world
             .get_resource::<MainRenderGraphId>()
             .unwrap()
-            .0
-            .clone();
+            .0;
         let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
-        let mut main_graph = graphs.get_mut(&main_graph_id).unwrap();
+        let main_graph = graphs.get_mut(main_graph_id).unwrap();
         main_graph.add_node(
-            RenderNodeBuilder::new()
+            RenderNodeBuilder::default()
                 .with_name("sprite")
                 .with_system(sprite_node_system)
                 .build(),

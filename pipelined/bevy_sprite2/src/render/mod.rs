@@ -12,10 +12,10 @@ use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render2::{
     mesh::{shape::Quad, Indices, Mesh, VertexAttributeValues},
     render_asset::RenderAssets,
-    render_graph::{GraphContext, NodeRunError, RecordingNodeInput, RecordingNodeOutput},
+    render_graph::{RecordingNodeInput, RecordingNodeOutput},
     render_phase::{Draw, DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderDevice,
     shader::Shader,
     texture::{BevyDefault, Image},
     view::{ViewUniformOffset, ViewUniforms},
@@ -386,7 +386,7 @@ pub fn sprite_node_system(
     }
     Ok(command_encoder)
 }
-
+#[allow(clippy::type_complexity)]
 pub struct DrawSprite {
     params: SystemState<(
         SRes<SpriteShaders>,

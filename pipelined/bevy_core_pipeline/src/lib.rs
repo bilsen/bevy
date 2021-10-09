@@ -15,7 +15,6 @@ use bevy_render2::{
     color::Color,
     render_graph::{
         empty_node_system, MainRenderGraphId, RenderGraph, RenderGraphs, RenderNodeBuilder,
-        SlotInfo, SlotType,
     },
     render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
     render_resource::*,
@@ -86,14 +85,13 @@ impl Plugin for CorePipelinePlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
-        let MainRenderGraphId(main_graph_id_ref) = render_app.world.get_resource().unwrap();
-        let main_graph_id = main_graph_id_ref.clone();
+        let MainRenderGraphId(main_graph_id) = *render_app.world.get_resource().unwrap();
 
         let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
 
         let mut draw_2d_graph = RenderGraph::new("draw_2d_graph");
         draw_2d_graph.add_node(
-            RenderNodeBuilder::new()
+            RenderNodeBuilder::default()
                 .with_name(draw_2d_graph::node::MAIN_PASS)
                 .with_system(main_pass_2d_node)
                 .build(),
@@ -105,7 +103,7 @@ impl Plugin for CorePipelinePlugin {
         let mut draw_3d_graph = RenderGraph::new("draw_3d_graph");
 
         draw_3d_graph.add_node(
-            RenderNodeBuilder::new()
+            RenderNodeBuilder::default()
                 .with_name(draw_3d_graph::node::MAIN_PASS)
                 .with_system(main_pass_3d_node)
                 .build(),
@@ -113,17 +111,17 @@ impl Plugin for CorePipelinePlugin {
         let draw_3d_graph_id = *draw_3d_graph.id();
         graphs.insert(draw_3d_graph::NAME, draw_3d_graph);
 
-        let main_graph = graphs.get_mut(&main_graph_id).unwrap();
+        let main_graph = graphs.get_mut(main_graph_id).unwrap();
 
         main_graph.add_node(
-            RenderNodeBuilder::new()
+            RenderNodeBuilder::default()
                 .with_name(node::MAIN_PASS_DRIVER)
                 .with_system(main_pass_driver_node_system)
                 .build(),
         );
 
         main_graph.add_node(
-            RenderNodeBuilder::new()
+            RenderNodeBuilder::default()
                 .with_name(node::MAIN_PASS_DEPENDENCIES)
                 .with_system(empty_node_system)
                 .build(),

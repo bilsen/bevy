@@ -9,8 +9,7 @@ use wgpu::CommandEncoder;
 
 use crate::{
     render_graph::{
-        GraphContext, NodeId, NodeRunError, RenderGraph, RenderGraphId, RenderGraphs, SlotLabel,
-        SlotType,
+        GraphContext, NodeId, NodeRunError, RenderGraphId, RenderGraphLabel, RenderGraphs, SlotType,
     },
     renderer::RenderDevice,
 };
@@ -21,33 +20,28 @@ use super::RenderQueue;
 pub enum RenderGraphRunnerError {
     #[error(transparent)]
     NodeRunError(#[from] NodeRunError),
+    #[error("requested render graph not found")]
+    MissingRenderGraph(RenderGraphLabel),
     #[error("node output slot not set (index {slot_index}, name {slot_name})")]
     EmptyNodeOutputSlot {
         type_name: &'static str,
         slot_index: usize,
         slot_name: Cow<'static, str>,
     },
-    #[error("graph (name: '{graph_name:?}') could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+    #[error(
+        "graph (name: '{graph_name:?}') could not be run because slot '{slot_name}' has no value"
+    )]
     MissingInput {
-        slot_index: usize,
         slot_name: Cow<'static, str>,
         graph_name: Option<Cow<'static, str>>,
     },
     #[error("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
-        slot_index: usize,
-        label: SlotLabel,
+        slot_name: Cow<'static, str>,
         expected: SlotType,
         actual: SlotType,
     },
 }
-
-/// A node that is ready to be run
-// struct ExpandedNode {
-//     graph: RenderGraphId,
-//     id: NodeId,
-//     context: GraphContext,
-// }
 
 pub(crate) struct RenderGraphRunner {
     archetype_generation: ArchetypeGeneration,
@@ -62,7 +56,8 @@ impl Default for RenderGraphRunner {
         }
     }
 }
-
+// TODO: One step for "expanding" graph, running systems which spawn sub graphs, and one step for running the resulting graph of "recording" nodes.
+// Will simplyfy the execution model and allow for more paralellism between subgraphs.
 impl RenderGraphRunner {
     fn update_archetypes(&mut self, world: &mut World, graphs: &mut RenderGraphs) {
         let archetypes = world.archetypes();
@@ -96,9 +91,8 @@ impl RenderGraphRunner {
     pub fn run_and_submit(
         &mut self,
         world: &mut World,
-        // Resource RenderGraphs is temporarily removed from world. this is to disallow any funky cross-system mutation from occuring.
         render_graphs: &mut RenderGraphs,
-        graph_id: RenderGraphId,
+        main_graph_id: &RenderGraphId,
     ) -> Result<(), RenderGraphRunnerError> {
         self.initialize_nodes(world, render_graphs);
         self.update_archetypes(world, render_graphs);
@@ -115,11 +109,11 @@ impl RenderGraphRunner {
             command_encoder = self.run_graph(
                 world,
                 render_graphs,
-                &graph_id,
+                main_graph_id,
                 Some("Main graph".into()),
                 command_encoder,
                 GraphContext::default(),
-            );
+            )?;
         }
         {
             let span = info_span!("submit_graph_commands");
@@ -137,13 +131,21 @@ impl RenderGraphRunner {
         graph_name: Option<Cow<'static, str>>,
         mut command_encoder: CommandEncoder,
         graph_context: GraphContext,
-    ) -> CommandEncoder {
+    ) -> Result<CommandEncoder, RenderGraphRunnerError> {
         debug!("-----------------");
         debug!("Begin Graph Run: {:?}", graph_name);
         debug!("-----------------");
 
+        if render_graphs.get(*graph_id).is_none() {
+            return Err(RenderGraphRunnerError::MissingRenderGraph(
+                (*graph_id).into(),
+            ));
+        }
+
         // Queue up nodes without inputs, which can be run immediately
-        let mut node_queue: VecDeque<NodeId> = get_graph_mut(render_graphs, graph_id)
+        let mut node_queue: VecDeque<NodeId> = render_graphs
+            .get_mut(*graph_id)
+            .unwrap()
             .iter_nodes()
             .filter(|node| node.edges.dependencies.is_empty())
             .map(|state| state.id)
@@ -156,23 +158,18 @@ impl RenderGraphRunner {
             if finished_nodes.contains(&node_state_id) {
                 continue;
             }
-
-            // Check if all dependencies have finished running
-            for dependency_node in get_graph_mut(render_graphs, graph_id)
-                .get_node(node_state_id)
+            let node_state = render_graphs
+                .get_mut(*graph_id)
                 .unwrap()
-                .edges
-                .dependencies
-                .iter()
-            {
-                if !finished_nodes.contains(&dependency_node) {
+                .get_node_mut(node_state_id)
+                .unwrap();
+            // Check if all dependencies have finished running
+            for dependency_node in node_state.edges.iter_dependencies() {
+                if !finished_nodes.contains(dependency_node) {
                     node_queue.push_back(node_state_id);
                     continue 'handle_node;
                 }
             }
-            let mut node_state = get_graph_mut(render_graphs, graph_id)
-                .get_node_mut(node_state_id)
-                .unwrap();
 
             // Run node TODO: Error handling
 
@@ -193,25 +190,20 @@ impl RenderGraphRunner {
                         None,
                         command_encoder,
                         run_sub_graph.context,
-                    );
+                    )?;
                 }
             }
             finished_nodes.insert(node_state_id);
-            for output_node_id in
-                get_graph_mut(render_graphs, graph_id).iter_dependants(&node_state_id)
+            for output_node_id in render_graphs
+                .get_mut(*graph_id)
+                .unwrap()
+                .iter_dependants(&node_state_id)
             {
                 node_queue.push_back(*output_node_id);
             }
         }
 
         debug!("finish graph: {:?}", graph_name);
-        command_encoder
+        Ok(command_encoder)
     }
-}
-
-fn get_graph_mut<'a>(
-    render_graphs: &'a mut RenderGraphs,
-    id: &RenderGraphId,
-) -> &'a mut RenderGraph {
-    render_graphs.get_mut(id).unwrap()
 }
