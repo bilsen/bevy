@@ -1,6 +1,6 @@
 use bevy_ecs::{
     archetype::Archetype,
-    system::{In, IntoSystem, System},
+    system::{In, IntoSystem, IsFunctionSystem, ReadOnlySystemParamFetch, System, SystemParam},
     world::World,
 };
 use bevy_utils::{HashSet, Uuid};
@@ -226,14 +226,17 @@ impl Default for RenderNodeBuilder {
 }
 
 impl RenderNodeBuilder {
-    pub fn with_system<S, In, Out, Param>(mut self, sys: S) -> Self
+    pub fn with_system<S, In, Out, Param: SystemParam, Marker>(mut self, sys: S) -> Self
     where
-        S: IntoSystem<In, Out, Param>,
+        S: IntoSystem<In, Out, (IsFunctionSystem, Param, Marker)>,
         Box<dyn System<In = In, Out = Out>>: Into<NodeSystem>,
+        Param::Fetch: ReadOnlySystemParamFetch,
     {
-        let system = (Box::new(sys.system()) as Box<dyn System<In = In, Out = Out>>).into();
+        let system: NodeSystem =
+            (Box::new(sys.system()) as Box<dyn System<In = In, Out = Out>>).into();
         self.system_name = system.name();
         self.system = system;
+
         self
     }
 

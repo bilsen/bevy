@@ -15,6 +15,7 @@ use bevy_render2::{
     color::Color,
     render_graph::{
         empty_node_system, MainRenderGraphId, RenderGraph, RenderGraphs, RenderNodeBuilder,
+        SlotType,
     },
     render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
     render_resource::*,
@@ -94,6 +95,8 @@ impl Plugin for CorePipelinePlugin {
             RenderNodeBuilder::default()
                 .with_name(draw_2d_graph::node::MAIN_PASS)
                 .with_system(main_pass_2d_node)
+                .with_requirement("color_attachment", SlotType::TextureView)
+                .with_requirement("view", SlotType::Entity)
                 .build(),
         );
 
@@ -106,6 +109,9 @@ impl Plugin for CorePipelinePlugin {
             RenderNodeBuilder::default()
                 .with_name(draw_3d_graph::node::MAIN_PASS)
                 .with_system(main_pass_3d_node)
+                .with_requirement("depth", SlotType::TextureView)
+                .with_requirement("color_attachment", SlotType::TextureView)
+                .with_requirement("view", SlotType::Entity)
                 .build(),
         );
         let draw_3d_graph_id = *draw_3d_graph.id();

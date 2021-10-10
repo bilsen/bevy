@@ -982,6 +982,9 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
     }
 }
 
+// SAFE: Only reads World
+unsafe impl ReadOnlySystemParamFetch for WorldState {}
+
 /// The [`SystemParamState`] of [`&World`].
 pub struct WorldState;
 

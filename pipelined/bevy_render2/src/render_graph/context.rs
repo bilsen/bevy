@@ -1,9 +1,8 @@
+use super::RenderGraphId;
 use crate::{render_graph::SlotValue, render_resource::TextureView};
 use bevy_ecs::entity::Entity;
 use bevy_utils::HashMap;
 use std::borrow::Cow;
-
-use super::RenderGraphId;
 
 pub struct RunSubGraph {
     pub id: RenderGraphId,

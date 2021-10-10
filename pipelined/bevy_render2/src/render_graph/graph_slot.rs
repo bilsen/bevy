@@ -57,6 +57,18 @@ pub enum SlotType {
     Entity,
 }
 
+impl SlotType {
+    pub fn as_string(&self) -> String {
+        match self {
+            SlotType::Buffer => "Buffer",
+            SlotType::Entity => "Entity",
+            SlotType::Sampler => "Sampler",
+            SlotType::TextureView => "TextureView",
+        }
+        .into()
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct SlotInfos {
     slots: HashMap<Cow<'static, str>, SlotType>,
@@ -106,5 +118,14 @@ impl SlotInfos {
             }
         }
         true
+    }
+
+    pub fn as_string(&self) -> String {
+        let type_strings: Vec<_> = self
+            .slots
+            .iter()
+            .map(|(name, slot_type)| (format!("{}: {}", name.to_owned(), slot_type.as_string())))
+            .collect();
+        type_strings.join(", ")
     }
 }

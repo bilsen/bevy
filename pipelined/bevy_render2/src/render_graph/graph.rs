@@ -111,6 +111,10 @@ impl RenderGraph {
             self.add_edge(id, *dependant).unwrap();
         }
 
+        for (name, slot_type) in node.slot_requirements.iter() {
+            self.slot_requirements.add_slot(name.clone(), *slot_type);
+        }
+
         self.nodes.insert(id, node);
         self.node_names.insert(name, id);
         id
@@ -190,6 +194,10 @@ impl RenderGraph {
 
     pub fn slots_matches(&self, context: &GraphContext) -> bool {
         self.slot_requirements.matches(context)
+    }
+
+    pub fn slots_string(&self) -> String {
+        self.slot_requirements.as_string()
     }
 }
 
