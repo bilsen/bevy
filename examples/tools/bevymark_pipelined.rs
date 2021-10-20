@@ -51,7 +51,7 @@ fn main() {
         .add_plugins(PipelinedDefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        // .add_plugin(WgpuResourceDiagnosticsPlugin::default())
+        // .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(BevyCounter { count: 0 })
         // .init_resource::<BirdMaterial>()
         .add_startup_system(setup)

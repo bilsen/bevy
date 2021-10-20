@@ -168,10 +168,6 @@ name = "taa"
 path = "examples/3d/taa.rs"
 
 [[example]]
-name = "taa2"
-path = "examples/3d/taa2.rs"
-
-[[example]]
 name = "many_cubes_pipelined"
 path = "examples/3d/many_cubes_pipelined.rs"
 

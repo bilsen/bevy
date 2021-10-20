@@ -23,13 +23,9 @@ use bevy_render2::{
 };
 use bevy_utils::HashMap;
 use crevice::std140::AsStd140;
-use render::{
-    extract_velocity_camera_phases,
-    nodes::{TaaVelocityNode, VelocityTextureNode},
-    queue_taa_mesh_bind_group, queue_taa_view_bind_group, queue_velocity, DrawTaaVelocity,
-    TaaVelocityShaders, Velocity,
-};
+use render::{DrawTaaVelocity, TaaVelocityShaders, Velocity, extract_velocity_camera_phases, nodes::{TaaVelocityNode, VelocityTextureNode}, queue_taa_mesh_bind_group, queue_taa_view_bind_group, queue_velocity, resolve::TaaResolveNode};
 use save::{Previous, SaveComponentPlugin};
+use crate::render::resolve::{taa_swap_system, TaaResolveShaders};
 
 pub struct TaaPlugin;
 
@@ -57,12 +53,15 @@ impl Plugin for TaaPlugin {
             .add_system_to_stage(RenderStage::Queue, queue_taa_mesh_bind_group)
             .add_system_to_stage(RenderStage::Queue, queue_taa_view_bind_group)
             .add_system_to_stage(RenderStage::Queue, queue_velocity)
+            .add_system_to_stage(RenderStage::Cleanup, taa_swap_system)
             .init_resource::<DrawFunctions<Velocity>>()
-            .init_resource::<TaaVelocityShaders>();
+            .init_resource::<TaaVelocityShaders>()
+            .init_resource::<TaaResolveShaders>();
 
         render_app.add_render_command::<Velocity, DrawTaaVelocity>();
 
         let velocity_node = TaaVelocityNode::new(&mut render_app.world);
+        let resolve_node = TaaResolveNode::default();
         let velocity_texture_node = VelocityTextureNode::new(&render_app.world);
 
         let render_world = render_app.world.cell();
@@ -91,6 +90,26 @@ impl Plugin for TaaPlugin {
         draw_3d_graph
             .add_node_edge("main_pass", "taa_velocity")
             .unwrap();
+        draw_3d_graph.add_node("taa_resolve", resolve_node);
+        draw_3d_graph.add_node_edge("taa_velocity", "taa_resolve");
+        draw_3d_graph
+            .add_slot_edge(
+                draw_3d_graph.input_node().unwrap().id,
+                "view_entity",
+                "taa_resolve",
+                TaaResolveNode::INPUT_VIEW,
+            )
+            .unwrap();
+
+        draw_3d_graph
+            .add_slot_edge(
+                draw_3d_graph.input_node().unwrap().id,
+                "render_target",
+                "taa_resolve",
+                TaaResolveNode::TARGET,
+            )
+            .unwrap();
+        
     }
 }
 
