@@ -41,7 +41,7 @@ impl Plugin for WireframePlugin {
     }
 }
 
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Component, Debug, Clone, Reflect, Default)]
 #[reflect(Component)]
 pub struct Wireframe;
 
