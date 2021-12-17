@@ -253,6 +253,9 @@ pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
 impl_param_set!();
 
+pub trait Resource: Send + Sync + 'static {}
+impl<T> Resource for T where T: Send + Sync + 'static {}
+
 /// Shared borrow of a resource.
 ///
 /// See the [`World`] documentation to see the usage of a resource.
