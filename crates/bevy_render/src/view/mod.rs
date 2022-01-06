@@ -75,14 +75,14 @@ pub struct ExtractedView {
 
 #[derive(Clone, AsStd140)]
 pub struct ViewUniform {
-    view_proj: Mat4,
-    inverse_view: Mat4,
-    projection: Mat4,
-    world_position: Vec3,
-    near: f32,
-    far: f32,
-    width: f32,
-    height: f32,
+    pub view_proj: Mat4,
+    pub inverse_view: Mat4,
+    pub projection: Mat4,
+    pub world_position: Vec3,
+    pub near: f32,
+    pub far: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 #[derive(Default)]
