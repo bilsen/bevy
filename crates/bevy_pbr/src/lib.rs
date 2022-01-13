@@ -185,7 +185,7 @@ impl Plugin for PbrPlugin {
         render_app.add_render_command::<Shadow, DrawShadowMesh>();
         let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
         let draw_3d_graph = graphs
-            .get_graph_mut(bevy_core_pipeline::draw_3d_graph::NAME)
+            .get_graph_mut(&bevy_core_pipeline::draw_3d_graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
         draw_3d_graph

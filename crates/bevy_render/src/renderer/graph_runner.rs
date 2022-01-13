@@ -101,11 +101,11 @@ impl RenderGraphRunner {
             }
 
             // check if all dependencies have finished running
-            for id in graph
-                .iter_node_dependencies(node_state.id)
+            for state in graph
+                .iter_dependencies(node_state.id)
                 .expect("node is in graph")
             {
-                if !nodes_ran.contains(id) {
+                if !nodes_ran.contains(&state.id) {
                     node_queue.push_front(node_state);
                     continue 'handle_node;
                 }
@@ -126,7 +126,7 @@ impl RenderGraphRunner {
 
                 for run_sub_graph in sub_graph_runs.drain() {
                     let sub_graph = graphs
-                        .get_graph(run_sub_graph.id)
+                        .get_graph(&run_sub_graph.id)
                         .expect("sub graph exists because it was validated when queued, the slot inputs are also valid");
 
                     Self::run_graph(
@@ -141,7 +141,7 @@ impl RenderGraphRunner {
 
             nodes_ran.insert(node_state.id);
 
-            for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {
+            for node_state in graph.iter_dependants(node_state.id).expect("node exists") {
                 node_queue.push_front(node_state);
             }
         }
@@ -244,11 +244,11 @@ impl ParalellRenderGraphRunner {
             }
 
             // check if all dependencies have finished running
-            for id in graph
-                .iter_node_dependencies(node_state.id)
+            for state in graph
+                .iter_dependencies(node_state.id)
                 .expect("node is in graph")
             {
-                if !nodes_ran.contains(id) {
+                if !nodes_ran.contains(&state.id) {
                     node_queue.push_front(node_state);
                     continue 'handle_node;
                 }
@@ -277,7 +277,7 @@ impl ParalellRenderGraphRunner {
 
             nodes_ran.insert(node_state.id);
 
-            for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {
+            for node_state in graph.iter_dependants(node_state.id).expect("node exists") {
                 node_queue.push_front(node_state);
             }
         }

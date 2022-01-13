@@ -1,11 +1,12 @@
+use std::borrow::Cow;
+
 use bevy_ecs::entity::Entity;
 use bevy_utils::HashMap;
 
 use crate::render_graph::context::SlotError;
 use crate::render_resource::{Buffer, Sampler, TextureView};
 
-/// A value passed between render [`Nodes`](super::Node).
-/// Corresponds to the [`SlotType`] specified in the [`RenderGraph`](super::RenderGraph).
+/// A value passed into a [`RenderGraph`](super::RenderGraph) when queued.
 ///
 /// Slots can have four different types of values:
 /// [`Buffer`], [`TextureView`], [`Sampler`] and [`Entity`].
@@ -37,13 +38,13 @@ impl SlotValue {
 
 #[derive(Default, Clone)]
 pub struct SlotValues {
-    values: Vec<(&'static str, SlotValue)>,
+    values: Vec<(Cow<'static, str>, SlotValue)>,
 }
 
 impl SlotValues {
-    pub fn new(iter: impl IntoIterator<Item = (&'static str, SlotValue)>) -> Self {
+    pub fn new<S: Into<Cow<'static, str>>>(iter: impl IntoIterator<Item = (S, SlotValue)>) -> Self {
         Self {
-            values: iter.into_iter().collect(),
+            values: iter.into_iter().map(|s| (s.0.into(), s.1)).collect(),
         }
     }
 
@@ -54,7 +55,7 @@ impl SlotValues {
     pub fn get_infos(&self) -> SlotInfos {
         self.values
             .iter()
-            .map(|(label, value)| SlotInfo::new(*label, value.slot_type()))
+            .map(|(label, value)| SlotInfo::new(label.clone(), value.slot_type()))
             .into()
     }
 
@@ -117,12 +118,12 @@ pub enum SlotType {
 /// The internal representation of a slot, which specifies its [`SlotType`] and name.
 #[derive(Clone, Debug)]
 pub struct SlotInfo {
-    pub name: &'static str,
+    pub name: Cow<'static, str>,
     pub slot_type: SlotType,
 }
 
 impl SlotInfo {
-    pub fn new(name: impl Into<&'static str>, slot_type: SlotType) -> Self {
+    pub fn new(name: impl Into<Cow<'static, str>>, slot_type: SlotType) -> Self {
         SlotInfo {
             name: name.into(),
             slot_type,
@@ -134,13 +135,16 @@ impl SlotInfo {
 /// a [`NodeState`](super::NodeState).
 #[derive(Default, Debug)]
 pub struct SlotInfos {
-    slots: HashMap<&'static str, SlotInfo>,
+    slots: HashMap<Cow<'static, str>, SlotInfo>,
 }
 
 impl<T: IntoIterator<Item = SlotInfo>> From<T> for SlotInfos {
     fn from(slots: T) -> Self {
         SlotInfos {
-            slots: slots.into_iter().map(|info| (info.name, info)).collect(),
+            slots: slots
+                .into_iter()
+                .map(|info| (info.name.clone(), info))
+                .collect(),
         }
     }
 }
@@ -159,12 +163,12 @@ impl SlotInfos {
     }
 
     /// Retrieves the [`SlotInfo`] for the provided label.
-    pub fn get_slot(&self, label: &'static str) -> Option<&SlotInfo> {
+    pub fn get(&self, label: &Cow<'static, str>) -> Option<&SlotInfo> {
         self.slots.get(label)
     }
 
     /// Retrieves the [`SlotInfo`] for the provided label mutably.
-    pub fn get_slot_mut(&mut self, label: &'static str) -> Option<&mut SlotInfo> {
+    pub fn get_slot_mut(&mut self, label: &Cow<'static, str>) -> Option<&mut SlotInfo> {
         self.slots.get_mut(label)
     }
 
@@ -173,8 +177,8 @@ impl SlotInfos {
         self.slots.values()
     }
 
-    /// Returns slots which this has but the other doesn't and those that the other has but this doesn't
-    pub fn get_conflicts(&self, _with: &Self) -> (Vec<SlotInfo>, Vec<SlotInfo>) {
-        todo!()
+    pub fn insert(&mut self, info: SlotInfo) {
+        self.slots.insert(info.name.clone(), info);
     }
+
 }

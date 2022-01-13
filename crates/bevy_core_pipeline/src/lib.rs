@@ -139,7 +139,7 @@ impl Plugin for CorePipelinePlugin {
         let mut clear_graph = RenderGraph::new(clear_graph::NAME);
         clear_graph.add_node(clear_graph::node::CLEAR_PASS, clear_pass_node);
         graphs.add_graph(clear_graph);
-        let graph = graphs.get_graph_mut(MAIN_GRAPH_ID).unwrap();
+        let graph = graphs.get_graph_mut(&MAIN_GRAPH_ID).unwrap();
 
         graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
         graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);

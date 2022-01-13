@@ -101,7 +101,7 @@ pub fn build_ui_render(app: &mut App) {
 
     graphs.add_graph(draw_ui_graph);
 
-    let graph = graphs.get_graph_mut(MAIN_GRAPH_ID).unwrap();
+    let graph = graphs.get_graph_mut(&MAIN_GRAPH_ID).unwrap();
 
     graph.add_node(node::UI_PASS_DRIVER, UiPassDriverNode);
     graph

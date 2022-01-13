@@ -24,14 +24,14 @@ impl bevy_render::render_graph::Node for UiPassDriverNode {
         &self,
         graph: &RenderGraphContext,
         world: &World,
-    ) -> Result<RunSubGraphs, NodeRunError> {
-        let mut run_sub_graphs = RunSubGraphs::default();
+    ) -> Result<QueueGraphs, NodeRunError> {
+        let mut run_sub_graphs = QueueGraphs::default();
 
         let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
         if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
-            run_sub_graphs.run(
+            run_sub_graphs.queue(
                 graph,
-                draw_ui_graph::NAME,
+                &draw_ui_graph::NAME,
                 vec![(
                     draw_ui_graph::input::VIEW_ENTITY,
                     SlotValue::Entity(*camera_ui),

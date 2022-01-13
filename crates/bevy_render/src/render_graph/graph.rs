@@ -1,10 +1,10 @@
-use crate::render_graph::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError};
+use crate::render_graph::{Node, NodeId, NodeLabel, NodeState, RenderGraphError};
 use bevy_ecs::prelude::World;
 use bevy_reflect::Uuid;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
-use super::{RunSubGraphError, SlotInfos};
+use super::{QueueGraphError, SlotInfos};
 
 /// A render graph configures the modular, parallel and re-usable render logic.
 /// It is a retained and stateless (nodes itself may have their internal state) structure,
@@ -12,7 +12,7 @@ use super::{RunSubGraphError, SlotInfos};
 ///
 /// The `RenderGraphRunner` is responsible for executing the entire graph each frame.
 ///
-/// It consists of two main components: [`Nodes`](Node) and [`Edges`](Edge)
+/// It consists of two main components: [`Nodes`](NodeState)
 ///
 /// Nodes are responsible for generating draw calls (`record`) and queuing other graphs for execution (`queue_graphs`).
 /// Edges specify the order of recording.
@@ -43,7 +43,6 @@ pub struct RenderGraph {
     name: Cow<'static, str>,
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
-    sub_graphs: HashMap<Cow<'static, str>, RenderGraph>,
     slot_requirements: SlotInfos,
 }
 
@@ -54,7 +53,6 @@ impl RenderGraph {
             name: name.into(),
             nodes: Default::default(),
             node_names: Default::default(),
-            sub_graphs: Default::default(),
             slot_requirements: Default::default(),
         }
     }
@@ -75,19 +73,23 @@ impl RenderGraph {
     pub fn update(&mut self, world: &mut World) {
         for node in self.nodes.values_mut() {
             node.node.update(world);
+            node.required_slots = node.node.slot_requirements();
         }
 
-        for sub_graph in self.sub_graphs.values_mut() {
-            sub_graph.update(world);
-        }
+        self.update_requirements()
     }
 
     /// ads
     pub fn update_requirements(&mut self) {
-        todo!();
+        self.slot_requirements = SlotInfos::default();
+        for node in self.nodes.values() {
+            for requirement in node.required_slots.iter() {
+                self.slot_requirements.insert(requirement.clone());
+            }
+        }
     }
 
-    pub fn assert_matching_slots(&self, _infos: &SlotInfos) -> Result<(), RunSubGraphError> {
+    pub fn assert_matching_slots(&self, _infos: &SlotInfos) -> Result<(), QueueGraphError> {
         todo!()
     }
 
@@ -172,28 +174,27 @@ impl RenderGraph {
         let before_node_id = self.get_node_id(before_node)?;
         let after_node_id = self.get_node_id(after_node)?;
 
-        let edge = Edge {
-            before: before_node_id,
-            after: after_node_id,
-        };
-
-        self.validate_edge(&edge)?;
+        self.validate_edge(&before_node_id, &after_node_id)?;
 
         {
-            let output_node = self.get_node_state_mut(before_node_id)?;
-            output_node.edges.add_output_edge(edge.clone())?;
+            let after_node = self.get_node_state_mut(after_node_id)?;
+            after_node.add_dependency(before_node_id);
         }
-        let input_node = self.get_node_state_mut(after_node_id)?;
-        input_node.edges.add_input_edge(edge)?;
+        let before_node = self.get_node_state_mut(after_node_id)?;
+        before_node.add_dependant(after_node_id);
 
         Ok(())
     }
 
     /// Verifies that the edge is not already existing and
     /// checks that slot edges are connected correctly.
-    pub fn validate_edge(&mut self, edge: &Edge) -> Result<(), RenderGraphError> {
-        if self.has_edge(edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
+    pub fn validate_edge(
+        &mut self,
+        before: &NodeId,
+        after: &NodeId,
+    ) -> Result<(), RenderGraphError> {
+        if self.has_edge(before, after) {
+            return Err(RenderGraphError::EdgeAlreadyExists(*before, *after));
         }
         // TODO: Check for cycles
 
@@ -201,20 +202,17 @@ impl RenderGraph {
     }
 
     /// Checks whether the `edge` already exists in the graph.
-    pub fn has_edge(&self, edge: &Edge) -> bool {
-        let output_node_state = self.get_node_state(edge.get_after_node());
-        let input_node_state = self.get_node_state(edge.get_before_node());
-        if let Ok(output_node_state) = output_node_state {
-            if output_node_state.edges.output_edges.contains(edge) {
-                if let Ok(input_node_state) = input_node_state {
-                    if input_node_state.edges.input_edges.contains(edge) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        false
+    pub fn has_edge(&self, before: &NodeId, after: &NodeId) -> bool {
+        let after_node = match self.get_node_state(*after) {
+            Err(_) => return false,
+            Ok(v) => v,
+        };
+        let before_node = match self.get_node_state(*before) {
+            Err(_) => return false,
+            Ok(v) => v,
+        };
+        after_node.iter_dependencies().any(|id| id == before)
+            || before_node.iter_dependants().any(|id| id == after)
     }
 
     /// Returns an iterator over the [`NodeStates`](NodeState).
@@ -227,48 +225,28 @@ impl RenderGraph {
         self.nodes.values_mut()
     }
 
-    /// Returns an iterator over the sub graphs.
-    pub fn iter_sub_graphs(&self) -> impl Iterator<Item = (&str, &RenderGraph)> {
-        self.sub_graphs
-            .iter()
-            .map(|(name, graph)| (name.as_ref(), graph))
-    }
-
-    /// Returns an iterator over the sub graphs, that allows modifying each value.
-    pub fn iter_sub_graphs_mut(&mut self) -> impl Iterator<Item = (&str, &mut RenderGraph)> {
-        self.sub_graphs
-            .iter_mut()
-            .map(|(name, graph)| (name.as_ref(), graph))
-    }
-
     /// Returns an iterator over a tuple of the input edges and the corresponding output nodes
     /// for the node referenced by the label.
-    pub fn iter_node_dependencies(
+    pub fn iter_dependencies(
         &self,
         label: impl Into<NodeLabel>,
-    ) -> Result<impl Iterator<Item = &NodeId>, RenderGraphError> {
+    ) -> Result<impl Iterator<Item = &NodeState>, RenderGraphError> {
         let node = self.get_node_state(label)?;
         Ok(node
-            .edges
-            .input_edges
-            .iter()
-            .map(|edge| (edge, edge.get_after_node()))
-            .map(|(edge, _output_node_id)| &edge.before))
+            .iter_dependencies()
+            .map(move |id| self.get_node_state(*id).unwrap()))
     }
 
     /// Returns an iterator over a tuple of the output edges and the corresponding input nodes
     /// for the node referenced by the label.
-    pub fn iter_node_outputs(
+    pub fn iter_dependants(
         &self,
         label: impl Into<NodeLabel>,
-    ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
+    ) -> Result<impl Iterator<Item = &NodeState>, RenderGraphError> {
         let node = self.get_node_state(label)?;
         Ok(node
-            .edges
-            .output_edges
-            .iter()
-            .map(|edge| (edge, edge.get_before_node()))
-            .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
+            .iter_dependants()
+            .map(move |id| self.get_node_state(*id).unwrap()))
     }
 }
 
@@ -308,28 +286,29 @@ pub struct RenderGraphs {
     graph_names: HashMap<Cow<'static, str>, RenderGraphId>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum GraphLabel {
-    Id(RenderGraphId),
-    Name(Cow<'static, str>),
+pub trait GraphLabel: Debug {
+    fn get_id(&self, graphs: &RenderGraphs) -> Option<RenderGraphId>;
 }
 
-impl<N: Into<Cow<'static, str>>> From<N> for GraphLabel {
-    fn from(name: N) -> Self {
-        GraphLabel::Name(name.into())
+impl GraphLabel for RenderGraphId {
+    fn get_id(&self, graphs: &RenderGraphs) -> Option<RenderGraphId> {
+        Some(*self)
     }
 }
 
-impl From<RenderGraphId> for GraphLabel {
-    fn from(id: RenderGraphId) -> Self {
-        GraphLabel::Id(id)
+impl GraphLabel for Cow<'static, str> {
+    fn get_id(&self, graphs: &RenderGraphs) -> Option<RenderGraphId> {
+        graphs.get_graph_id(self).map(|id| *id)
     }
 }
-impl<'a> From<&'a RenderGraphId> for GraphLabel {
-    fn from(id: &'a RenderGraphId) -> Self {
-        GraphLabel::Id(*id)
+
+impl GraphLabel for &'static str {
+    fn get_id(&self, graphs: &RenderGraphs) -> Option<RenderGraphId> {
+        graphs.get_graph_id(&Cow::Borrowed(self)).map(|id| *id)
     }
 }
+
+
 
 impl RenderGraphs {
     /// Adds the `graph` with the `name` to the graph.
@@ -339,43 +318,47 @@ impl RenderGraphs {
         self.graphs.insert(graph.id, graph);
     }
 
-    pub fn get_graph_id(&self, label: impl Into<GraphLabel>) -> Option<RenderGraphId> {
-        match label.into() {
-            GraphLabel::Id(id) => Some(id),
-            GraphLabel::Name(ref k) => Some(*self.graph_names.get(k)?),
-        }
+    pub fn get_graph_id(&self, label: &Cow<'static, str>) -> Option<&RenderGraphId> {
+        
+        Some(self.graph_names.get(label)?)
+        
     }
 
-    pub fn get_graph_name(&self, label: impl Into<GraphLabel>) -> Option<Cow<'static, str>> {
-        match label.into() {
-            GraphLabel::Id(id) => self.graphs.get(&id).map(|g| g.name.clone()),
-            GraphLabel::Name(k) => Some(k),
-        }
+    pub fn get_graph_name(&self, label: &RenderGraphId) -> Option<&Cow<'static, str>> {
+        self.graphs.get(label).map(|g| &g.name)
+        
     }
 
     /// Retrieves the sub graph corresponding to the `name`.
-    pub fn get_graph(&self, label: impl Into<GraphLabel>) -> Option<&RenderGraph> {
-        self.graphs.get(&self.get_graph_id(label)?)
+    pub fn get_graph(&self, label: &impl GraphLabel) -> Option<&RenderGraph> {
+        let id = label.get_id(self)?;
+        self.graphs.get(&id)
     }
 
     /// Retrieves the sub graph corresponding to the `name`.
-    pub fn get_graph_mut(&mut self, label: impl Into<GraphLabel>) -> Option<&mut RenderGraph> {
-        self.graphs.get_mut(&self.get_graph_id(label)?)
+    pub fn get_graph_mut(&mut self, label: &impl GraphLabel) -> Option<&mut RenderGraph> {
+        let id = label.get_id(self)?;
+        self.graphs.get_mut(&id)
     }
 
     pub fn update(&mut self, world: &mut World) {
         for graph in self.graphs.values_mut() {
             graph.update(world);
         }
+
+        
+
     }
 }
 
 // #[cfg(test)]
 // mod tests {
+//     use std::borrow::Cow;
+
 //     use crate::{
 //         render_graph::{
 //             Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
-//             SlotInfo, SlotType,
+//             SlotInfo, SlotType, SlotInfos,
 //         },
 //         renderer::RenderContext,
 //     };
@@ -402,17 +385,13 @@ impl RenderGraphs {
 //     }
 
 //     impl Node for TestNode {
-//         fn input(&self) -> Vec<SlotInfo> {
-//             self.inputs.clone()
+//         fn slot_requirements(&self) -> SlotInfos {
+//             self.inputs.clone().into()
 //         }
 
-//         fn output(&self) -> Vec<SlotInfo> {
-//             self.outputs.clone()
-//         }
-
-//         fn run(
+//         fn record(
 //             &self,
-//             _: &mut RenderGraphContext,
+//             _: &RenderGraphContext,
 //             _: &mut RenderContext,
 //             _: &World,
 //         ) -> Result<(), NodeRunError> {
@@ -422,15 +401,16 @@ impl RenderGraphs {
 
 //     #[test]
 //     fn test_graph_edges() {
-//         let mut graph = RenderGraph::default();
+//         let mut graph = RenderGraph::new("");
+
 //         let a_id = graph.add_node("A", TestNode::new(0, 1));
 //         let b_id = graph.add_node("B", TestNode::new(0, 1));
 //         let c_id = graph.add_node("C", TestNode::new(1, 1));
 //         let d_id = graph.add_node("D", TestNode::new(1, 0));
 
-//         graph.add_slot_edge("A", "out_0", "C", "in_0").unwrap();
 //         graph.add_edge("B", "C").unwrap();
-//         graph.add_slot_edge("C", 0, "D", 0).unwrap();
+//         graph.add_edge("A", "C").unwrap();
+//         graph.add_edge("C", "D").unwrap();
 
 //         fn input_nodes(name: Cow<'static, str>, graph: &RenderGraph) -> HashSet<NodeId> {
 //             graph

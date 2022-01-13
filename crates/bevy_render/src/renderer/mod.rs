@@ -26,7 +26,7 @@ pub fn render_system(world: &mut World) {
     let paralell = ParalellRenderGraphRunner::new();
     paralell
         .run(
-            &graphs.get_graph_id(MAIN_GRAPH_ID).unwrap(),
+            &graphs.get_graph_id(&MAIN_GRAPH_ID.into()).unwrap(),
             render_device.clone(), // TODO: is this clone really necessary?
             render_queue,
             world,

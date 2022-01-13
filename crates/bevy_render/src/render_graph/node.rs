@@ -1,7 +1,5 @@
 use crate::{
-    render_graph::{
-        Edge, RenderGraphContext, RenderGraphError, RunSubGraphError, SlotError, SlotInfos,
-    },
+    render_graph::{RenderGraphContext, RenderGraphError, QueueGraphError, SlotError, SlotInfos},
     renderer::RenderContext,
 };
 use bevy_ecs::world::World;
@@ -10,7 +8,8 @@ use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 
-use super::RunSubGraphs;
+use super::QueueGraphs;
+
 
 /// A [`Node`] identifier.
 /// It automatically generates its own random uuid.
@@ -68,7 +67,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
         &self,
         _graph: &RenderGraphContext,
         _world: &World,
-    ) -> Result<RunSubGraphs, NodeRunError> {
+    ) -> Result<QueueGraphs, NodeRunError> {
         Ok(Default::default())
     }
 }
@@ -79,52 +78,12 @@ impl_downcast!(Node);
 pub enum NodeRunError {
     #[error("encountered an slot error")]
     SlotError(#[from] SlotError),
-    #[error("encountered an error when running a sub-graph")]
-    RunSubGraphError(#[from] RunSubGraphError),
-}
-
-/// A collection of input and output [`Edges`](Edge) for a [`Node`].
-#[derive(Debug)]
-pub struct Edges {
-    pub id: NodeId,
-    pub input_edges: Vec<Edge>,
-    pub output_edges: Vec<Edge>,
-}
-
-impl Edges {
-    /// Adds an edge to the `input_edges` if it does not already exist.
-    pub(crate) fn add_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if self.has_input_edge(&edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge));
-        }
-        self.input_edges.push(edge);
-        Ok(())
-    }
-
-    /// Adds an edge to the `output_edges` if it does not already exist.
-    pub(crate) fn add_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if self.has_output_edge(&edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge));
-        }
-        self.output_edges.push(edge);
-        Ok(())
-    }
-
-    /// Checks whether the input edge already exists.
-    pub fn has_input_edge(&self, edge: &Edge) -> bool {
-        self.input_edges.contains(edge)
-    }
-
-    /// Checks whether the output edge already exists.
-    pub fn has_output_edge(&self, edge: &Edge) -> bool {
-        self.output_edges.contains(edge)
-    }
+    #[error("encountered an error when queueing a graph")]
+    QueueGraphError(#[from] QueueGraphError),
 }
 
 /// The internal representation of a [`Node`], with all data required
 /// by the [`RenderGraph`](super::RenderGraph).
-///
-/// The `input_slots` and `output_slots` are provided by the `node`.
 pub struct NodeState {
     pub id: NodeId,
     pub name: Cow<'static, str>,
@@ -132,7 +91,8 @@ pub struct NodeState {
     pub type_name: &'static str,
     pub node: Box<dyn Node>,
     pub required_slots: SlotInfos,
-    pub edges: Edges,
+    pub dependencies: Vec<NodeId>,
+    pub dependants: Vec<NodeId>,
 }
 
 impl Debug for NodeState {
@@ -154,11 +114,8 @@ impl NodeState {
             required_slots: node.slot_requirements(),
             node: Box::new(node),
             type_name: std::any::type_name::<T>(),
-            edges: Edges {
-                id,
-                input_edges: Vec::new(),
-                output_edges: Vec::new(),
-            },
+            dependencies: Vec::new(),
+            dependants: Vec::new(),
         }
     }
 
@@ -180,6 +137,22 @@ impl NodeState {
         self.node
             .downcast_mut::<T>()
             .ok_or(RenderGraphError::WrongNodeType)
+    }
+
+    pub fn iter_dependants(&self) -> impl Iterator<Item = &NodeId> {
+        self.dependants.iter()
+    }
+
+    pub fn iter_dependencies(&self) -> impl Iterator<Item = &NodeId> {
+        self.dependencies.iter()
+    }
+
+    pub fn add_dependency(&mut self, id: NodeId) {
+        self.dependencies.push(id);
+    }
+
+    pub fn add_dependant(&mut self, id: NodeId) {
+        self.dependants.push(id);
     }
 }
 

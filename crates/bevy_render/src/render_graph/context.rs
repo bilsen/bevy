@@ -7,41 +7,66 @@ use super::{GraphLabel, RenderGraphId, RenderGraphs, SlotValues};
 
 /// A command that signals the graph runner to run the sub graph corresponding to the `name`
 /// with the specified `inputs` next.
-pub struct RunSubGraph {
+pub struct QueueGraph {
     pub id: RenderGraphId,
     pub inputs: SlotValues,
 }
 
 #[derive(Default)]
-pub struct RunSubGraphs {
-    commands: Vec<RunSubGraph>,
+pub struct QueueGraphs {
+    commands: Vec<QueueGraph>,
 }
 
-impl RunSubGraphs {
-    pub fn drain(self) -> impl Iterator<Item = RunSubGraph> {
+impl QueueGraphs {
+    pub fn drain(self) -> impl Iterator<Item = QueueGraph> {
         self.commands.into_iter()
     }
 
-    pub fn run(
+    pub fn queue(
         &mut self,
         ctx: &RenderGraphContext,
-        name: impl Into<GraphLabel>,
-        inputs: impl Into<SlotValues>,
-    ) -> Result<(), RunSubGraphError> {
+        label: &impl GraphLabel,
+        into_inputs: impl Into<SlotValues>,
+    ) -> Result<(), QueueGraphError> {
         // TODO: Assert that the inputs match the graph
-        let label = name.into();
-        let id_option = ctx.graphs.get_graph_id(label.clone());
-        let id = match id_option {
-            None => {
-                return Err(RunSubGraphError::MissingSubGraph(label));
-            }
-            Some(id) => id,
-        };
 
-        self.commands.push(RunSubGraph {
+        let id = label
+            .get_id(ctx.graphs)
+            .ok_or_else(|| QueueGraphError::MissingGraph(format!("{:?}", label).into()))?;
+
+        let graph = ctx
+            .graphs
+            .get_graph(&id).unwrap();
+
+
+        let inputs = into_inputs.into();
+
+        let infos = inputs.get_infos();
+
+        let requirements = graph.get_slot_requirements();
+
+        for provided in infos.iter() {
+            let needed = requirements
+                .get(&provided.name)
+                .ok_or(QueueGraphError::UnusedInput {
+                    slot_name: provided.name.clone(),
+                    graph_name: graph.get_name().clone(),
+                })?;
+            if needed.slot_type != provided.slot_type {
+                return Err(QueueGraphError::MismatchedSlotType {
+                    graph_name: graph.get_name().clone(),
+                    label: needed.name.clone(),
+                    expected: needed.slot_type.clone(),
+                    actual: provided.slot_type.clone(),
+                });
+            }
+        }
+
+        self.commands.push(QueueGraph {
             id,
-            inputs: inputs.into(),
+            inputs,
         });
+
         Ok(())
     }
 }
@@ -83,24 +108,25 @@ impl<'a> RenderGraphContext<'a> {
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
-pub enum RunSubGraphError {
-    #[error("tried to run a non-existent sub-graph")]
-    MissingSubGraph(GraphLabel),
-    #[error("passed in inputs, but this sub-graph doesn't have any")]
-    SubGraphHasNoInputs(Cow<'static, str>),
-    #[error("sub graph (name: '{graph_name:?}') could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+pub enum QueueGraphError {
+    #[error("tried to run a non-existent graph")]
+    MissingGraph(Cow<'static, str>),
+    #[error("graph (name: '{graph_name:?}') could not be queued because slot '{slot_name}' has no value")]
     MissingInput {
-        slot_index: usize,
         slot_name: Cow<'static, str>,
         graph_name: Cow<'static, str>,
     },
-    #[error("attempted to use the wrong type for input slot")]
-    MismatchedInputSlotType {
+    #[error("attempted to use the wrong type for a slot")]
+    MismatchedSlotType {
         graph_name: Cow<'static, str>,
-        slot_index: usize,
-        label: &'static str,
+        label: Cow<'static, str>,
         expected: SlotType,
         actual: SlotType,
+    },
+    #[error("graph (name: '{graph_name:?}') could not be queued because input '{slot_name}' does not match any slot requirement")]
+    UnusedInput {
+        slot_name: Cow<'static, str>,
+        graph_name: Cow<'static, str>,
     },
 }
 
