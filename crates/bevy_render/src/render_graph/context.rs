@@ -25,19 +25,17 @@ impl QueueGraphs {
     pub fn queue(
         &mut self,
         ctx: &RenderGraphContext,
-        label: &impl GraphLabel,
+        label: impl Into<GraphLabel>,
         into_inputs: impl Into<SlotValues>,
     ) -> Result<(), QueueGraphError> {
         // TODO: Assert that the inputs match the graph
 
-        let id = label
-            .get_id(ctx.graphs)
-            .ok_or_else(|| QueueGraphError::MissingGraph(format!("{:?}", label).into()))?;
+        let label = label.into();
 
         let graph = ctx
             .graphs
-            .get_graph(&id).unwrap();
-
+            .get_graph(label.clone())
+            .ok_or_else(|| QueueGraphError::MissingGraph(label))?;
 
         let inputs = into_inputs.into();
 
@@ -63,7 +61,7 @@ impl QueueGraphs {
         }
 
         self.commands.push(QueueGraph {
-            id,
+            id: *graph.id(),
             inputs,
         });
 
@@ -110,7 +108,7 @@ impl<'a> RenderGraphContext<'a> {
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum QueueGraphError {
     #[error("tried to run a non-existent graph")]
-    MissingGraph(Cow<'static, str>),
+    MissingGraph(GraphLabel),
     #[error("graph (name: '{graph_name:?}') could not be queued because slot '{slot_name}' has no value")]
     MissingInput {
         slot_name: Cow<'static, str>,

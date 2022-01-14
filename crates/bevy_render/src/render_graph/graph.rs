@@ -286,29 +286,37 @@ pub struct RenderGraphs {
     graph_names: HashMap<Cow<'static, str>, RenderGraphId>,
 }
 
-pub trait GraphLabel: Debug {
-    fn get_id(&self, graphs: &RenderGraphs) -> Option<RenderGraphId>;
+/// A [`GraphLabel`] is used to reference a [`NodeState`] by either its name or [`NodeId`]
+/// inside the [`RenderGraph`](super::RenderGraph).
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum GraphLabel {
+    Id(RenderGraphId),
+    Name(Cow<'static, str>),
 }
 
-impl GraphLabel for RenderGraphId {
-    fn get_id(&self, graphs: &RenderGraphs) -> Option<RenderGraphId> {
-        Some(*self)
+impl From<&GraphLabel> for GraphLabel {
+    fn from(value: &GraphLabel) -> Self {
+        value.clone()
     }
 }
 
-impl GraphLabel for Cow<'static, str> {
-    fn get_id(&self, graphs: &RenderGraphs) -> Option<RenderGraphId> {
-        graphs.get_graph_id(self).map(|id| *id)
+impl From<String> for GraphLabel {
+    fn from(value: String) -> Self {
+        GraphLabel::Name(value.into())
     }
 }
 
-impl GraphLabel for &'static str {
-    fn get_id(&self, graphs: &RenderGraphs) -> Option<RenderGraphId> {
-        graphs.get_graph_id(&Cow::Borrowed(self)).map(|id| *id)
+impl From<&'static str> for GraphLabel {
+    fn from(value: &'static str) -> Self {
+        GraphLabel::Name(value.into())
     }
 }
 
-
+impl From<RenderGraphId> for GraphLabel {
+    fn from(value: RenderGraphId) -> Self {
+        GraphLabel::Id(value)
+    }
+}
 
 impl RenderGraphs {
     /// Adds the `graph` with the `name` to the graph.
@@ -318,26 +326,26 @@ impl RenderGraphs {
         self.graphs.insert(graph.id, graph);
     }
 
-    pub fn get_graph_id(&self, label: &Cow<'static, str>) -> Option<&RenderGraphId> {
-        
-        Some(self.graph_names.get(label)?)
-        
+    pub fn get_graph_id(&self, label: GraphLabel) -> Option<RenderGraphId> {
+        match label {
+            GraphLabel::Id(i) => Some(i),
+            GraphLabel::Name(n) => Some(*self.graph_names.get(&n)?),
+        }
     }
 
     pub fn get_graph_name(&self, label: &RenderGraphId) -> Option<&Cow<'static, str>> {
         self.graphs.get(label).map(|g| &g.name)
-        
     }
 
     /// Retrieves the sub graph corresponding to the `name`.
-    pub fn get_graph(&self, label: &impl GraphLabel) -> Option<&RenderGraph> {
-        let id = label.get_id(self)?;
+    pub fn get_graph(&self, label: impl Into<GraphLabel>) -> Option<&RenderGraph> {
+        let id = self.get_graph_id(label.into())?;
         self.graphs.get(&id)
     }
 
     /// Retrieves the sub graph corresponding to the `name`.
-    pub fn get_graph_mut(&mut self, label: &impl GraphLabel) -> Option<&mut RenderGraph> {
-        let id = label.get_id(self)?;
+    pub fn get_graph_mut(&mut self, label: impl Into<GraphLabel>) -> Option<&mut RenderGraph> {
+        let id = self.get_graph_id(label.into())?;
         self.graphs.get_mut(&id)
     }
 
@@ -345,9 +353,6 @@ impl RenderGraphs {
         for graph in self.graphs.values_mut() {
             graph.update(world);
         }
-
-        
-
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    render_graph::{RenderGraphContext, RenderGraphError, QueueGraphError, SlotError, SlotInfos},
+    render_graph::{QueueGraphError, RenderGraphContext, RenderGraphError, SlotError, SlotInfos},
     renderer::RenderContext,
 };
 use bevy_ecs::world::World;
@@ -9,7 +9,6 @@ use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 
 use super::QueueGraphs;
-
 
 /// A [`Node`] identifier.
 /// It automatically generates its own random uuid.
@@ -51,7 +50,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
     /// Updates internal node state using the current render [`World`] prior to the run method.
     fn update(&mut self, _world: &mut World) {}
 
-    /// Runs the graph node logic, issues draw calls. The graph data is
+    /// Records the graph node logic into the command buffer. The slot data is
     /// passed via the [`RenderGraphContext`].
     fn record(
         &self,
@@ -62,10 +61,11 @@ pub trait Node: Downcast + Send + Sync + 'static {
         Ok(())
     }
 
-    /// Queues graphs for execution.
+    /// Queues graphs for execution. The graph data is
+    /// passed via the [`RenderGraphContext`].
     fn queue_graphs(
         &self,
-        _graph: &RenderGraphContext,
+        _context: &RenderGraphContext,
         _world: &World,
     ) -> Result<QueueGraphs, NodeRunError> {
         Ok(Default::default())
@@ -155,7 +155,6 @@ impl NodeState {
         self.dependants.push(id);
     }
 }
-
 /// A [`NodeLabel`] is used to reference a [`NodeState`] by either its name or [`NodeId`]
 /// inside the [`RenderGraph`](super::RenderGraph).
 #[derive(Debug, Clone, Eq, PartialEq)]

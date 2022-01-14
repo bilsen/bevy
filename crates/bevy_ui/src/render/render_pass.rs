@@ -31,7 +31,7 @@ impl bevy_render::render_graph::Node for UiPassDriverNode {
         if let Some(camera_ui) = extracted_cameras.entities.get(CAMERA_UI) {
             run_sub_graphs.queue(
                 graph,
-                &draw_ui_graph::NAME,
+                draw_ui_graph::NAME,
                 vec![(
                     draw_ui_graph::input::VIEW_ENTITY,
                     SlotValue::Entity(*camera_ui),

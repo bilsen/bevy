@@ -4,7 +4,7 @@ use bevy::{
     render::{
         camera::{ActiveCameras, ExtractedCameraNames},
         render_graph::{
-            Node, NodeRunError, RenderGraphContext, RenderGraphs, QueueGraphs, SlotValue,
+            Node, NodeRunError, QueueGraphs, RenderGraphContext, RenderGraphs, SlotValue,
         },
         render_phase::RenderPhase,
         RenderApp, RenderStage, MAIN_GRAPH_ID,
@@ -22,7 +22,7 @@ fn main() {
     let render_app = app.sub_app_mut(RenderApp);
     render_app.add_system_to_stage(RenderStage::Extract, extract_secondary_camera_phases);
     let mut graphs = render_app.world.get_resource_mut::<RenderGraphs>().unwrap();
-    let graph = graphs.get_graph_mut(&MAIN_GRAPH_ID).unwrap();
+    let graph = graphs.get_graph_mut(MAIN_GRAPH_ID).unwrap();
     graph.add_node(SECONDARY_PASS_DRIVER, SecondaryCameraDriver);
     graph
         .add_edge(node::MAIN_PASS_DEPENDENCIES, SECONDARY_PASS_DRIVER)
@@ -88,7 +88,7 @@ impl Node for SecondaryCameraDriver {
         let mut sub_graph_runs = QueueGraphs::default();
         let extracted_cameras = world.get_resource::<ExtractedCameraNames>().unwrap();
         if let Some(camera_3d) = extracted_cameras.entities.get(SECONDARY_CAMERA_NAME) {
-            sub_graph_runs.run(
+            sub_graph_runs.queue(
                 graph,
                 crate::draw_3d_graph::NAME,
                 vec![(

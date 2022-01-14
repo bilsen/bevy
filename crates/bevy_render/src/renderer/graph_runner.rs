@@ -83,7 +83,7 @@ impl RenderGraphRunner {
         inputs: SlotValues,
     ) -> Result<(), RenderGraphRunnerError> {
         let mut nodes_ran: HashSet<NodeId> = HashSet::default();
-        let graph = graphs.get_graph(graph_id).expect("graph exists");
+        let graph = graphs.get_graph(*graph_id).expect("graph exists");
         let context = RenderGraphContext::new(inputs, graphs);
 
         #[cfg(feature = "trace")]
@@ -126,7 +126,7 @@ impl RenderGraphRunner {
 
                 for run_sub_graph in sub_graph_runs.drain() {
                     let sub_graph = graphs
-                        .get_graph(&run_sub_graph.id)
+                        .get_graph(run_sub_graph.id)
                         .expect("sub graph exists because it was validated when queued, the slot inputs are also valid");
 
                     Self::run_graph(
@@ -227,7 +227,7 @@ impl ParalellRenderGraphRunner {
         let mut nodes_ordered = Vec::default();
         let mut nodes_ran: HashSet<NodeId> = HashSet::default();
 
-        let graph = graphs.get_graph(graph_id).unwrap();
+        let graph = graphs.get_graph(*graph_id).unwrap();
 
         #[cfg(feature = "trace")]
         let span = info_span!("run_graph", name = graph.get_name().deref());

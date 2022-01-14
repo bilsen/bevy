@@ -180,5 +180,4 @@ impl SlotInfos {
     pub fn insert(&mut self, info: SlotInfo) {
         self.slots.insert(info.name.clone(), info);
     }
-
 }

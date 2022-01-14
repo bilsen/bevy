@@ -1,5 +1,5 @@
 use bevy_ecs::world::World;
-use bevy_render::render_graph::{Node, NodeRunError, RenderGraphContext, QueueGraphs, SlotValues};
+use bevy_render::render_graph::{Node, NodeRunError, QueueGraphs, RenderGraphContext, SlotValues};
 
 pub struct ClearPassDriverNode;
 
@@ -10,7 +10,7 @@ impl Node for ClearPassDriverNode {
         _world: &World,
     ) -> Result<QueueGraphs, NodeRunError> {
         let mut queued_graphs = QueueGraphs::default();
-        queued_graphs.queue(graph, &crate::clear_graph::NAME, SlotValues::empty())?;
+        queued_graphs.queue(graph, crate::clear_graph::NAME, SlotValues::empty())?;
 
         Ok(queued_graphs)
     }
