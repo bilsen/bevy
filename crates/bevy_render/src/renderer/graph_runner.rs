@@ -66,9 +66,7 @@ impl RenderGraphRunner {
         )?;
         {
             #[cfg(feature = "trace")]
-            let span = info_span!("submit_graph_commands");
-            #[cfg(feature = "trace")]
-            let _guard = span.enter();
+            let _span = info_span!("submit_graph_commands").entered();
             queue.submit(vec![render_context.command_encoder.finish()]);
         }
 
@@ -121,8 +119,8 @@ impl RenderGraphRunner {
 
                 node_state.node.record(&context, render_context, world)?;
 
-                #[cfg(feature = "trace")]
-                drop(guard);
+                    node_state.node.run(&mut context, render_context, world)?;
+                }
 
                 for run_sub_graph in sub_graph_runs.drain() {
                     let sub_graph = graphs

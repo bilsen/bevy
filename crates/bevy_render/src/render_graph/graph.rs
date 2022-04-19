@@ -108,6 +108,69 @@ impl RenderGraph {
         id
     }
 
+    /// Removes the `node` with the `name` from the graph.
+    /// If the name is does not exist, nothing happens.
+    pub fn remove_node(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Result<(), RenderGraphError> {
+        let name = name.into();
+        if let Some(id) = self.node_names.remove(&name) {
+            if let Some(node_state) = self.nodes.remove(&id) {
+                // Remove all edges from other nodes to this one. Note that as we're removing this
+                // node, we don't need to remove its input edges
+                for input_edge in node_state.edges.input_edges().iter() {
+                    match input_edge {
+                        Edge::SlotEdge {
+                            output_node,
+                            output_index: _,
+                            input_node: _,
+                            input_index: _,
+                        } => {
+                            if let Ok(output_node) = self.get_node_state_mut(*output_node) {
+                                output_node.edges.remove_output_edge(input_edge.clone())?;
+                            }
+                        }
+                        Edge::NodeEdge {
+                            input_node: _,
+                            output_node,
+                        } => {
+                            if let Ok(output_node) = self.get_node_state_mut(*output_node) {
+                                output_node.edges.remove_output_edge(input_edge.clone())?;
+                            }
+                        }
+                    }
+                }
+                // Remove all edges from this node to other nodes. Note that as we're removing this
+                // node, we don't need to remove its output edges
+                for output_edge in node_state.edges.output_edges().iter() {
+                    match output_edge {
+                        Edge::SlotEdge {
+                            output_node: _,
+                            output_index: _,
+                            input_node,
+                            input_index: _,
+                        } => {
+                            if let Ok(input_node) = self.get_node_state_mut(*input_node) {
+                                input_node.edges.remove_input_edge(output_edge.clone())?;
+                            }
+                        }
+                        Edge::NodeEdge {
+                            output_node: _,
+                            input_node,
+                        } => {
+                            if let Ok(input_node) = self.get_node_state_mut(*input_node) {
+                                input_node.edges.remove_input_edge(output_edge.clone())?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Retrieves the [`NodeState`] referenced by the `label`.
     pub fn get_node_state(
         &self,
@@ -186,7 +249,34 @@ impl RenderGraph {
         Ok(())
     }
 
-    /// Verifies that the edge is not already existing and
+    /// Removes the [`Edge::NodeEdge`] from the graph. If either node does not exist then nothing
+    /// happens.
+    pub fn remove_node_edge(
+        &mut self,
+        output_node: impl Into<NodeLabel>,
+        input_node: impl Into<NodeLabel>,
+    ) -> Result<(), RenderGraphError> {
+        let output_node_id = self.get_node_id(output_node)?;
+        let input_node_id = self.get_node_id(input_node)?;
+
+        let edge = Edge::NodeEdge {
+            output_node: output_node_id,
+            input_node: input_node_id,
+        };
+
+        self.validate_edge(&edge, EdgeExistence::Exists)?;
+
+        {
+            let output_node = self.get_node_state_mut(output_node_id)?;
+            output_node.edges.remove_output_edge(edge.clone())?;
+        }
+        let input_node = self.get_node_state_mut(input_node_id)?;
+        input_node.edges.remove_input_edge(edge)?;
+
+        Ok(())
+    }
+
+    /// Verifies that the edge existence is as expected and
     /// checks that slot edges are connected correctly.
     pub fn validate_edge(
         &mut self,
