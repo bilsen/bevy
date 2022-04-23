@@ -1,3 +1,4 @@
+mod flatten_graph;
 mod graph_runner;
 mod render_device;
 
@@ -6,7 +7,7 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
-    render_graph::RenderGraph,
+    render_graph::{MainRenderGraph, RenderGraphs},
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
@@ -16,15 +17,15 @@ use wgpu::{AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
-        graph.update(world);
+    world.resource_scope(|world, mut graphs: Mut<RenderGraphs>| {
+        graphs.update(world);
     });
-    let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
 
-    if let Err(e) = RenderGraphRunner::run(
-        graph,
+    let mut runner = ParalellRenderGraphRunner::default();
+    if let Err(e) = runner.run(
+        &MainRenderGraph,
         render_device.clone(), // TODO: is this clone really necessary?
         render_queue,
         world,

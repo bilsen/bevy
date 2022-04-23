@@ -3,9 +3,10 @@ use bevy::{
     prelude::*,
     render::{
         camera::{ActiveCamera, Camera, CameraTypePlugin, RenderTarget},
-        render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
+        render_graph::{
+            MainRenderGraph, Node, NodeRunError, QueueContext, QueueNode, RenderGraphs, SlotValues,
+        },
         render_phase::RenderPhase,
-        renderer::RenderContext,
         view::RenderLayers,
         RenderApp, RenderStage,
     },
@@ -35,22 +36,26 @@ fn main() {
     // This will add 3D render phases for the new camera.
     render_app.add_system_to_stage(RenderStage::Extract, extract_first_pass_camera_phases);
 
-    let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
+    let mut graphs = render_app.world.resource_mut::<RenderGraphs>();
+
+    let main_graph = graphs.get_mut(&MainRenderGraph).unwrap();
 
     // Add a node for the first pass.
-    graph.add_node(FIRST_PASS_DRIVER, driver);
+    main_graph
+        .add_queueing_node(FIRST_PASS_DRIVER, driver)
+        .unwrap();
 
     // The first pass's dependencies include those of the main pass.
-    graph
-        .add_node_edge(node::MAIN_PASS_DEPENDENCIES, FIRST_PASS_DRIVER)
+    main_graph
+        .add_edge(node::MAIN_PASS_DEPENDENCIES, FIRST_PASS_DRIVER)
         .unwrap();
 
     // Insert the first pass node: CLEAR_PASS_DRIVER -> FIRST_PASS_DRIVER -> MAIN_PASS_DRIVER
-    graph
-        .add_node_edge(node::CLEAR_PASS_DRIVER, FIRST_PASS_DRIVER)
+    main_graph
+        .add_edge(node::CLEAR_PASS_DRIVER, FIRST_PASS_DRIVER)
         .unwrap();
-    graph
-        .add_node_edge(FIRST_PASS_DRIVER, node::MAIN_PASS_DRIVER)
+    main_graph
+        .add_edge(FIRST_PASS_DRIVER, node::MAIN_PASS_DRIVER)
         .unwrap();
     app.run();
 }
@@ -85,15 +90,20 @@ impl Node for FirstPassCameraDriver {
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
+}
 
-    fn run(
+impl QueueNode for FirstPassCameraDriver {
+    fn queue(
         &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _slot_values: &SlotValues,
+        queue_context: &mut QueueContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         for camera in self.query.iter_manual(world) {
-            graph.run_sub_graph(draw_3d_graph::NAME, vec![SlotValue::Entity(camera)])?;
+            queue_context.queue(
+                draw_3d_graph::NAME,
+                SlotValues::default().with(draw_3d_graph::input::VIEW_ENTITY, camera),
+            )?;
         }
         Ok(())
     }

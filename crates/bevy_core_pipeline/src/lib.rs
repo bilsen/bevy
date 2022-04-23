@@ -25,7 +25,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{ActiveCamera, Camera2d, Camera3d, ExtractedCamera, RenderTarget},
     color::Color,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    render_graph::{MainRenderGraph, RenderGraph, RenderGraphs, SlotRequirements},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
         DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
@@ -145,52 +145,51 @@ impl Plugin for CorePipelinePlugin {
         let clear_pass_node = ClearPassNode::new(&mut render_app.world);
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
+        let mut graphs = render_app.world.resource_mut::<RenderGraphs>();
 
-        let mut draw_2d_graph = RenderGraph::default();
-        draw_2d_graph.add_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d);
-        let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
-            draw_2d_graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
+        let draw_2d_requirements =
+            SlotRequirements::default().with::<Entity>(draw_2d_graph::input::VIEW_ENTITY.into());
+
+        let mut draw_2d_graph = RenderGraph::new(draw_2d_graph::NAME, draw_2d_requirements);
         draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_2d_graph::input::VIEW_ENTITY,
-                draw_2d_graph::node::MAIN_PASS,
-                MainPass2dNode::IN_VIEW,
-            )
+            .add_recording_node(draw_2d_graph::node::MAIN_PASS, pass_node_2d)
             .unwrap();
-        graph.add_sub_graph(draw_2d_graph::NAME, draw_2d_graph);
 
-        let mut draw_3d_graph = RenderGraph::default();
-        draw_3d_graph.add_node(draw_3d_graph::node::MAIN_PASS, pass_node_3d);
-        let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
-            draw_3d_graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
+        graphs.insert(draw_2d_graph);
+
+        let draw_3d_requirements =
+            SlotRequirements::default().with::<Entity>(draw_3d_graph::input::VIEW_ENTITY.into());
+
+        let mut draw_3d_graph = RenderGraph::new(draw_3d_graph::NAME, draw_3d_requirements);
+
         draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                draw_3d_graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
-            )
+            .add_recording_node(draw_3d_graph::node::MAIN_PASS, pass_node_3d)
             .unwrap();
-        graph.add_sub_graph(draw_3d_graph::NAME, draw_3d_graph);
 
-        let mut clear_graph = RenderGraph::default();
-        clear_graph.add_node(clear_graph::node::CLEAR_PASS, clear_pass_node);
-        graph.add_sub_graph(clear_graph::NAME, clear_graph);
+        graphs.insert(draw_3d_graph);
 
-        graph.add_node(node::MAIN_PASS_DEPENDENCIES, EmptyNode);
-        graph.add_node(node::MAIN_PASS_DRIVER, MainPassDriverNode);
-        graph
-            .add_node_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
+        let mut clear_graph = RenderGraph::new(clear_graph::NAME, SlotRequirements::default());
+        clear_graph
+            .add_recording_node(clear_graph::node::CLEAR_PASS, clear_pass_node)
             .unwrap();
-        graph.add_node(node::CLEAR_PASS_DRIVER, ClearPassDriverNode);
-        graph
-            .add_node_edge(node::CLEAR_PASS_DRIVER, node::MAIN_PASS_DRIVER)
+        graphs.insert(clear_graph);
+
+        let main_graph = graphs.get_mut(&MainRenderGraph).unwrap();
+
+        main_graph
+            .add_empty_node(node::MAIN_PASS_DEPENDENCIES)
+            .unwrap();
+        main_graph
+            .add_queueing_node(node::MAIN_PASS_DRIVER, MainPassDriverNode)
+            .unwrap();
+        main_graph
+            .add_edge(node::MAIN_PASS_DEPENDENCIES, node::MAIN_PASS_DRIVER)
+            .unwrap();
+        main_graph
+            .add_queueing_node(node::CLEAR_PASS_DRIVER, ClearPassDriverNode)
+            .unwrap();
+        main_graph
+            .add_edge(node::CLEAR_PASS_DRIVER, node::MAIN_PASS_DRIVER)
             .unwrap();
     }
 }

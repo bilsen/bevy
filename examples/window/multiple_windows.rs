@@ -3,9 +3,10 @@ use bevy::{
     prelude::*,
     render::{
         camera::{ActiveCamera, CameraTypePlugin, RenderTarget},
-        render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, SlotValue},
+        render_graph::{
+            self, MainRenderGraph, NodeRunError, QueueContext, QueueNode, RenderGraphs, SlotValues,
+        },
         render_phase::RenderPhase,
-        renderer::RenderContext,
         RenderApp, RenderStage,
     },
     window::{CreateWindow, PresentMode, WindowId},
@@ -33,32 +34,39 @@ impl Plugin for SecondWindowCameraPlugin {
         render_app.add_system_to_stage(RenderStage::Extract, extract_second_camera_phases);
 
         // add a render graph node that executes the 3d subgraph
-        let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-        let second_window_node = render_graph.add_node("second_window_cam", SecondWindowDriverNode);
-        render_graph
-            .add_node_edge(
+        let mut graphs = render_app.world.resource_mut::<RenderGraphs>();
+        let main_graph = graphs.get_mut(&MainRenderGraph).unwrap();
+
+        main_graph
+            .add_queueing_node("second_window_cam", SecondWindowDriverNode)
+            .unwrap();
+        main_graph
+            .add_edge(
                 core_pipeline::node::MAIN_PASS_DEPENDENCIES,
-                second_window_node,
+                "second_window_cam",
             )
             .unwrap();
-        render_graph
-            .add_node_edge(core_pipeline::node::CLEAR_PASS_DRIVER, second_window_node)
+        main_graph
+            .add_edge(core_pipeline::node::CLEAR_PASS_DRIVER, "second_window_cam")
             .unwrap();
     }
 }
 
 struct SecondWindowDriverNode;
-impl render_graph::Node for SecondWindowDriverNode {
-    fn run(
+impl render_graph::Node for SecondWindowDriverNode {}
+
+impl QueueNode for SecondWindowDriverNode {
+    fn queue(
         &self,
-        graph: &mut RenderGraphContext,
-        _: &mut RenderContext,
+        _slot_values: &render_graph::SlotValues,
+        queue_context: &mut QueueContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if let Some(camera) = world.resource::<ActiveCamera<SecondWindowCamera3d>>().get() {
-            graph.run_sub_graph(
+            queue_context.queue(
                 core_pipeline::draw_3d_graph::NAME,
-                vec![SlotValue::Entity(camera)],
+                SlotValues::default()
+                    .with(core_pipeline::draw_3d_graph::input::VIEW_ENTITY, camera),
             )?;
         }
 

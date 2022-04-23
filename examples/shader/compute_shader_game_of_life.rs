@@ -3,7 +3,9 @@ use bevy::{
     prelude::*,
     render::{
         render_asset::RenderAssets,
-        render_graph::{self, RenderGraph},
+        render_graph::{
+            self, MainRenderGraph, NodeRunError, RecordingNode, RenderGraphs, SlotValues,
+        },
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage,
@@ -67,10 +69,13 @@ impl Plugin for GameOfLifeComputePlugin {
             .add_system_to_stage(RenderStage::Extract, extract_game_of_life_image)
             .add_system_to_stage(RenderStage::Queue, queue_bind_group);
 
-        let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-        render_graph.add_node("game_of_life", GameOfLifeNode::default());
-        render_graph
-            .add_node_edge("game_of_life", MAIN_PASS_DEPENDENCIES)
+        let mut graphs = render_app.world.resource_mut::<RenderGraphs>();
+        let main_graph = graphs.get_mut(&MainRenderGraph).unwrap();
+        main_graph
+            .add_recording_node("game_of_life", GameOfLifeNode::default())
+            .unwrap();
+        main_graph
+            .add_edge("game_of_life", MAIN_PASS_DEPENDENCIES)
             .unwrap();
     }
 }
@@ -195,13 +200,15 @@ impl render_graph::Node for GameOfLifeNode {
             GameOfLifeState::Update => {}
         }
     }
+}
 
-    fn run(
+impl RecordingNode for GameOfLifeNode {
+    fn record(
         &self,
-        _graph: &mut render_graph::RenderGraphContext,
+        _slot_values: &SlotValues,
         render_context: &mut RenderContext,
         world: &World,
-    ) -> Result<(), render_graph::NodeRunError> {
+    ) -> Result<(), NodeRunError> {
         let texture_bind_group = &world.resource::<GameOfLifeImageBindGroup>().0;
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<GameOfLifePipeline>();

@@ -16,7 +16,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, SlotInfo, SlotType},
+    render_graph::{MainRenderGraph, RenderGraph, RenderGraphs, SlotRequirements},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -85,27 +85,24 @@ pub fn build_ui_render(app: &mut App) {
 
     // Render graph
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
-    let mut graph = render_app.world.resource_mut::<RenderGraph>();
+    let mut graphs = render_app.world.resource_mut::<RenderGraphs>();
 
-    let mut draw_ui_graph = RenderGraph::default();
-    draw_ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
-    let input_node_id = draw_ui_graph.set_input(vec![SlotInfo::new(
-        draw_ui_graph::input::VIEW_ENTITY,
-        SlotType::Entity,
-    )]);
+    let mut draw_ui_graph = RenderGraph::new(
+        draw_ui_graph::NAME,
+        SlotRequirements::default().with::<Entity>(draw_ui_graph::input::VIEW_ENTITY.into()),
+    );
     draw_ui_graph
-        .add_slot_edge(
-            input_node_id,
-            draw_ui_graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            UiPassNode::IN_VIEW,
-        )
+        .add_recording_node(draw_ui_graph::node::UI_PASS, ui_pass_node)
         .unwrap();
-    graph.add_sub_graph(draw_ui_graph::NAME, draw_ui_graph);
 
-    graph.add_node(node::UI_PASS_DRIVER, UiPassDriverNode);
-    graph
-        .add_node_edge(
+    graphs.insert(draw_ui_graph);
+
+    let main_graph = graphs.get_mut(&MainRenderGraph).unwrap();
+    main_graph
+        .add_queueing_node(node::UI_PASS_DRIVER, UiPassDriverNode)
+        .unwrap();
+    main_graph
+        .add_edge(
             bevy_core_pipeline::node::MAIN_PASS_DRIVER,
             node::UI_PASS_DRIVER,
         )

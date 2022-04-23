@@ -1,20 +1,18 @@
 use bevy_ecs::world::World;
-use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext},
-    renderer::RenderContext,
-};
+use bevy_render::render_graph::{Node, NodeRunError, QueueContext, QueueNode, SlotValues};
 
 pub struct ClearPassDriverNode;
 
-impl Node for ClearPassDriverNode {
-    fn run(
+impl Node for ClearPassDriverNode {}
+
+impl QueueNode for ClearPassDriverNode {
+    fn queue(
         &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _slot_values: &SlotValues,
+        queue_context: &mut QueueContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        graph.run_sub_graph(crate::clear_graph::NAME, vec![])?;
-
+        queue_context.queue(crate::clear_graph::NAME, SlotValues::default())?;
         Ok(())
     }
 }

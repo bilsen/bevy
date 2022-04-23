@@ -1,4 +1,5 @@
 use bevy_core::FloatOrd;
+use bevy_core_pipeline::draw_2d_graph;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -20,15 +21,19 @@ use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta};
 
 pub struct UiPassDriverNode;
 
-impl Node for UiPassDriverNode {
-    fn run(
+impl Node for UiPassDriverNode {}
+impl QueueNode for UiPassDriverNode {
+    fn queue(
         &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _slot_values: &SlotValues,
+        queue_context: &mut QueueContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if let Some(camera_ui) = world.resource::<ActiveCamera<CameraUi>>().get() {
-            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(camera_ui)])?;
+            queue_context.queue(
+                draw_ui_graph::NAME,
+                SlotValues::default().with(draw_ui_graph::input::VIEW_ENTITY, camera_ui),
+            )?;
         }
 
         Ok(())
@@ -41,8 +46,6 @@ pub struct UiPassNode {
 }
 
 impl UiPassNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
@@ -51,21 +54,22 @@ impl UiPassNode {
 }
 
 impl Node for UiPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)]
+    fn slot_requirements(&self) -> SlotRequirements {
+        SlotRequirements::default().with::<Entity>(draw_2d_graph::input::VIEW_ENTITY.into())
     }
 
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
-
-    fn run(
+}
+impl RecordingNode for UiPassNode {
+    fn record(
         &self,
-        graph: &mut RenderGraphContext,
+        slot_values: &SlotValues,
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = *slot_values.get::<Entity>(&draw_2d_graph::input::VIEW_ENTITY.into())?;
         let (transparent_phase, target) = self
             .query
             .get_manual(world, view_entity)

@@ -7,6 +7,7 @@ pub mod primitives;
 pub mod render_asset;
 pub mod render_component;
 pub mod render_graph;
+
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
@@ -37,7 +38,7 @@ use crate::{
     color::Color,
     mesh::MeshPlugin,
     primitives::{CubemapFrusta, Frustum},
-    render_graph::RenderGraph,
+    render_graph::{MainRenderGraph, RenderGraph, RenderGraphs, SlotRequirements},
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::render_system,
     texture::ImagePlugin,
@@ -176,7 +177,13 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .init_resource::<RenderGraphs>();
+
+            let mut graphs = render_app.world.resource_mut::<RenderGraphs>();
+            graphs.insert(RenderGraph::new(
+                MainRenderGraph,
+                SlotRequirements::default(),
+            ));
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]

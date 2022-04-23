@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_core::FloatOrd;
-use bevy_core_pipeline::Transparent3d;
+use bevy_core_pipeline::{draw_2d_graph, Transparent3d};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -16,7 +16,7 @@ use bevy_render::{
     color::Color,
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RecordingNode, SlotRequirements, SlotValues},
     render_phase::{
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
@@ -1406,8 +1406,6 @@ pub struct ShadowPassNode {
 }
 
 impl ShadowPassNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             main_view_query: QueryState::new(world),
@@ -1417,22 +1415,24 @@ impl ShadowPassNode {
 }
 
 impl Node for ShadowPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(ShadowPassNode::IN_VIEW, SlotType::Entity)]
+    fn slot_requirements(&self) -> SlotRequirements {
+        SlotRequirements::default().with::<Entity>(draw_2d_graph::input::VIEW_ENTITY.into())
     }
 
     fn update(&mut self, world: &mut World) {
         self.main_view_query.update_archetypes(world);
         self.view_light_query.update_archetypes(world);
     }
+}
 
-    fn run(
+impl RecordingNode for ShadowPassNode {
+    fn record(
         &self,
-        graph: &mut RenderGraphContext,
+        slot_values: &SlotValues,
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = *slot_values.get::<Entity>(&draw_2d_graph::input::VIEW_ENTITY.into())?;
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
                 let (view_light, shadow_phase) = self
