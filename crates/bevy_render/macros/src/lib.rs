@@ -33,6 +33,20 @@ pub fn derive_render_node_label(input: TokenStream) -> TokenStream {
     derive_label(input, &trait_path)
 }
 
+#[proc_macro_derive(SlotLabel)]
+pub fn derive_slot_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let mut trait_path = bevy_render_path();
+    trait_path
+        .segments
+        .push(format_ident!("render_graph").into());
+    // trait_path.segments.push(format_ident!("node").into());
+    trait_path
+        .segments
+        .push(format_ident!("SlotLabel").into());
+    derive_label(input, &trait_path)
+}
+
 pub(crate) fn bevy_render_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_render")
 }

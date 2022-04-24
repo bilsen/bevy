@@ -1432,7 +1432,7 @@ impl RecordingNode for ShadowPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = *slot_values.get::<Entity>(&draw_2d_graph::input::VIEW_ENTITY.into())?;
+        let view_entity: Entity = *slot_values.get(draw_2d_graph::input::VIEW_ENTITY)?;
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
                 let (view_light, shadow_phase) = self

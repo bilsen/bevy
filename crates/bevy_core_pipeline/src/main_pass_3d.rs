@@ -35,7 +35,6 @@ impl Node for MainPass3dNode {
     fn slot_requirements(&self) -> SlotRequirements {
         SlotRequirements::default().with::<Entity>(draw_3d_graph::input::VIEW_ENTITY.into())
     }
-
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -48,7 +47,8 @@ impl RecordingNode for MainPass3dNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = *slot_values.get::<Entity>(&draw_3d_graph::input::VIEW_ENTITY.into())?;
+        let view_entity: Entity = *slot_values.get(draw_3d_graph::input::VIEW_ENTITY)?;
+
         let (opaque_phase, alpha_mask_phase, transparent_phase, target, depth) =
             match self.query.get_manual(world, view_entity) {
                 Ok(query) => query,

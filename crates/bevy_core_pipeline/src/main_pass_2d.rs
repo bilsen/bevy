@@ -38,7 +38,7 @@ impl RecordingNode for MainPass2dNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = *slot_values.get::<Entity>(&draw_2d_graph::input::VIEW_ENTITY.into())?;
+        let view_entity: Entity = *slot_values.get(draw_2d_graph::input::VIEW_ENTITY)?;
         let (transparent_phase, target) = self
             .query
             .get_manual(world, view_entity)

@@ -34,7 +34,11 @@ impl ClearPassNode {
     }
 }
 
-impl Node for ClearPassNode {}
+impl Node for ClearPassNode {
+    fn update(&mut self, world: &mut World) {
+        self.query.update_archetypes(world);
+    }
+}
 
 impl RecordingNode for ClearPassNode {
     fn record(
