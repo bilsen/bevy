@@ -42,7 +42,7 @@ impl RenderGraphs {
     pub fn get_id(&self, label: &dyn RenderGraphLabel) -> Result<&RenderGraphId, RenderGraphError> {
         let boxed_label: BoxedRenderGraphLabel = label.dyn_clone();
         self.labels
-            .get(&boxed_label)
+            .get(label)
             .ok_or_else(|| RenderGraphError::LabelError(format!("{:#?}", boxed_label).into()))
     }
 

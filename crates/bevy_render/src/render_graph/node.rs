@@ -114,6 +114,7 @@ impl NodeState {
     pub fn requirements(&self) -> SlotRequirements {
         self.function.slot_requirements()
     }
+
 }
 
 pub enum BoxedNode {

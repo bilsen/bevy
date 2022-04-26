@@ -10,7 +10,9 @@ use downcast_rs::{impl_downcast, Downcast};
 
 use super::{SlotError, SlotRequirementError, SlotValueError};
 
-pub trait SlotValue: Downcast + Send + Sync + 'static {}
+pub trait SlotValue: Downcast + Send + Sync + 'static {
+    
+}
 
 impl_downcast!(SlotValue);
 
@@ -23,44 +25,58 @@ type BoxedSlotValue = Box<dyn SlotValue>;
 
 #[derive(Default)]
 pub struct SlotRequirements {
-    values: HashMap<Cow<'static, str>, TypeId>,
+    type_ids: HashMap<&'static str, TypeId>,
     type_names: HashMap<TypeId, &'static str>,
-    defaults: HashMap<Cow<'static, str>, BoxedSlotValue>,
+    defaults: HashMap<&'static str, BoxedSlotValue>,
 }
 
 impl SlotRequirements {
+    pub fn new<T: SlotValue>(slot_label: &'static str) -> Self {
+        let id = TypeId::of::<T>();
 
-    pub fn with<T: SlotValue>(mut self, slot_label: Cow<'static, str>) -> Self {
+        let name = type_name::<T>();
+        let mut requirements = SlotRequirements::default();
+        requirements.type_names.insert(id, name.into());
+        requirements.type_ids.insert(slot_label, id);
+
+        requirements
+    }
+
+    pub fn with<T: SlotValue>(mut self, slot_label: &'static str) -> Self {
         let id = TypeId::of::<T>();
 
         let name = type_name::<T>();
 
         self.type_names.insert(id, name.into());
-        self.values.insert(slot_label, id);
+        self.type_ids.insert(slot_label, id);
 
         self
     }
 
-    // pub fn set_default<T: SlotValue>(
-    //     &mut self,
-    //     slot_label: impl AsRef<str>,
+
+
+    // pub fn with_default<T: SlotValue>(
+    //     mut self,
+    //     slot_label: &'static str,
     //     value: T,
-    // ) -> Result<&mut Self, SlotError> {
-    //     let slot_name = slot_label.dyn_clone();
-    //     if let Some(ty) = self.values.get(&slot_name) {
-    //         if ty != &TypeId::of::<T>() {
-    //             let expected_type_name = self.type_names[ty].clone();
+    // ) -> Result<Self, SlotError> {
+    //     todo!("Fix this");
+    //     // let slot_name = slot_label.into();
 
-    //             return Err(SlotError::SlotTypeError {
-    //                 slot_name: format!("{:?}", slot_name).into(),
-    //                 expected_type: expected_type_name.into(),
-    //                 actual_type: type_name::<T>().into(),
-    //             });
-    //         }
-    //     }
+    //     // if let Some(ty) = self.type_ids.get(&slot_name) {
+    //     //     if ty != &TypeId::of::<T>() {
+    //     //         let expected_type_name = self.type_names[ty].clone();
 
-    //     self.values.insert(slot_name.clone(), TypeId::of::<T>());
-    //     self.defaults.insert(slot_name.clone(), Box::new(value));
+    //     //         return Err(SlotError::SlotTypeError {
+    //     //             slot_name: format!("{:?}", slot_name).into(),
+    //     //             expected_type: expected_type_name.into(),
+    //     //             actual_type: type_name::<T>().into(),
+    //     //         });
+    //     //     }
+    //     // }
+
+    //     // self.type_ids.insert(slot_name.clone(), TypeId::of::<T>());
+    //     // self.defaults.insert(slot_name.clone(), Box::new(value));
 
     //     Ok(self)
     // }
@@ -69,8 +85,8 @@ impl SlotRequirements {
         &self,
         graph_requirements: &SlotRequirements,
     ) -> Option<SlotRequirementError> {
-        for (name, id) in self.values.iter() {
-            if let Some(expected_id) = graph_requirements.values.get(name) {
+        for (name, id) in self.type_ids.iter() {
+            if let Some(expected_id) = graph_requirements.type_ids.get(name) {
                 if expected_id != id {
                     let actual = graph_requirements.type_names[id].into();
                     let provided = self.type_names[expected_id].clone().into();
@@ -91,7 +107,7 @@ impl SlotRequirements {
 
     /// Returns the first error (if any) for these slot values
     pub(crate) fn get_slot_value_error(&self, provided_values: &SlotValues) -> Option<SlotValueError> {
-        let mut not_seen: HashSet<_> = self.values.keys().collect();
+        let mut not_seen: HashSet<_> = self.type_ids.keys().collect();
 
         for (
             name,
@@ -102,7 +118,7 @@ impl SlotRequirements {
             },
         ) in provided_values.values.iter()
         {
-            if let Some(expected_id) = self.values.get(name) {
+            if let Some(expected_id) = self.type_ids.get(name) {
                 if expected_id != type_id {
                     return Some(SlotValueError::SlotProvidedTypeError {
                         name: format!("{:?}", name).into(),
@@ -143,13 +159,13 @@ impl Debug for SlotValueDescriptor {
 
 #[derive(Default, Debug)]
 pub struct SlotValues {
-    values: HashMap<Cow<'static, str>, SlotValueDescriptor>,
+    values: HashMap<&'static str, SlotValueDescriptor>,
 }
 
 impl SlotValues {
     pub fn with<T: SlotValue>(
         mut self,
-        slot_label: impl Into<Cow<'static, str>>,
+        slot_label: &'static str,
         value: T,
     ) -> Self {
         let slot_name = slot_label.into();
@@ -165,7 +181,7 @@ impl SlotValues {
         self
     }
 
-    pub fn get<T: SlotValue>(&self, slot_label: impl AsRef<str>) -> Result<&T, SlotError> {
+    pub fn get<T: SlotValue>(&self, slot_label: &'static str) -> Result<&T, SlotError> {
         
         let SlotValueDescriptor {
             item,
@@ -173,14 +189,14 @@ impl SlotValues {
             ..
         } = self
             .values
-            .get(slot_label.as_ref())
-            .ok_or_else(|| SlotError::SlotNameError(slot_label.as_ref().to_owned().into()))?;
+            .get(slot_label)
+            .ok_or_else(|| SlotError::SlotNameError(slot_label.into()))?;
 
         item.downcast_ref::<T>().ok_or_else(|| {
             let expected_type = type_name::<T>().into();
 
             SlotError::SlotTypeError {
-                slot_name: slot_label.as_ref().to_owned().into(),
+                slot_name: slot_label.into(),
                 expected_type,
                 actual_type: actual_type.clone().into(),
             }

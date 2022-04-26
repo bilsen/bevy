@@ -6,18 +6,21 @@ use bevy_utils::{HashMap, HashSet};
 use std::ops::Deref;
 
 use crate::render_graph::{
-    BoxedNode, GraphRunError, NodeId, RenderGraph, RenderGraphId, RenderGraphLabel, RenderGraphs,
+    BoxedNode, GraphRunError, NodeId, RenderGraph, RenderGraphId, RenderGraphLabel, RenderGraphs, SlotValues,
 };
 
-use super::{flatten_graph::FlattenedGraph, RenderContext, RenderDevice};
+use super::{flatten_graph::{FlattenedGraph, NodeLocation}, RenderContext, RenderDevice};
 
 #[derive(Default)]
 pub struct ParalellRenderGraphRunner {
     cached_data: CachedData,
+    flattened_nodes: Vec<(NodeLocation, usize)>,
+    slot_values: Vec<SlotValues>
 }
 
 #[derive(Default)]
 pub struct CachedData {
+    // Nodes in each graph sorted topologically
     pub sorted_nodes: HashMap<RenderGraphId, Vec<NodeId>>,
 }
 
@@ -37,36 +40,40 @@ impl ParalellRenderGraphRunner {
         };
 
         let graphs = world.resource::<RenderGraphs>();
-        // fn run(&mut self, world: &World, main_graph_label: impl RenderGraphLabel, graphs: &RenderGraphs) {
-        self.cached_data = rebuild_cached_data(graphs);
+        self.rebuild_cached_data(graphs);
 
         let main_graph = graphs.get(main_graph_label).expect("Main graph exists");
-        let flattened = FlattenedGraph::from(world, main_graph, &self.cached_data);
         let FlattenedGraph {
             nodes,
             slot_values_set,
-        } = flattened;
+        } = FlattenedGraph::from(world, main_graph, &self.cached_data);
+        
 
-        for (location, slot_value_index) in nodes {
+        // Single threaded recording
+        for (NodeLocation {graph_id, node_id}, slot_value_index) in nodes {
             let node = graphs
-                .get_node(&location.graph_id, &location.node_id)
+                .get_node(&graph_id, &node_id)
                 .unwrap();
+            
             match node.get_function() {
-                BoxedNode::Empty(_) | BoxedNode::Queue(_) => {}
+                BoxedNode::Empty(_) | BoxedNode::Queue(_) => {
+                    // Node is either empty or has queued 
+                }
                 BoxedNode::Record(recording_node) => {
                     recording_node
                         .record(
+                            // The slot values that were provided to this node
                             &slot_values_set[slot_value_index],
                             &mut render_context,
                             world,
                         )
                         .map_err(|node_error| {
                             let graph_label =
-                                graphs.get_by_id(&location.graph_id).unwrap().get_label();
+                                graphs.get_by_id(&graph_id).unwrap().get_label();
                             let node_label = node.get_label();
                             GraphRunError::NodeRunError {
-                                graph: format!("{:?}", graph_label).into(),
-                                node: format!("{:?}", node_label).into(),
+                                graph: format!("{graph_label:?}").into(),
+                                node: format!("{node_label:?}").into(),
                                 node_error,
                             }
                         })?;
@@ -74,24 +81,28 @@ impl ParalellRenderGraphRunner {
             }
         }
 
+        // Multi threaded recording
+
         let command_buffer = render_context.command_encoder.finish();
         queue.submit(vec![command_buffer]);
 
         Ok(())
         // Split nodes into sets equaling the number of workgroups
     }
-}
 
-fn rebuild_cached_data(graphs: &RenderGraphs) -> CachedData {
-    let mut cached_data = CachedData::default();
-    for graph in graphs.iter() {
-        cached_data
-            .sorted_nodes
-            .insert(*graph.get_id(), topologically_sort_graph(graph));
+    fn rebuild_cached_data(&mut self, graphs: &RenderGraphs) {
+        let mut cached_data = CachedData::default();
+        for graph in graphs.iter() {
+            cached_data
+                .sorted_nodes
+                .insert(*graph.get_id(), topologically_sort_graph(graph));
+        }
+
+        self.cached_data = cached_data;
     }
 
-    cached_data
 }
+
 
 fn topologically_sort_graph(graph: &RenderGraph) -> Vec<NodeId> {
     let mut result = Vec::new();

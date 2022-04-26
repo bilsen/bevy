@@ -89,7 +89,7 @@ pub fn build_ui_render(app: &mut App) {
 
     let mut draw_ui_graph = RenderGraph::new(
         draw_ui_graph::NAME,
-        SlotRequirements::default().with::<Entity>(draw_ui_graph::input::VIEW_ENTITY.into()),
+        SlotRequirements::new::<Entity>(draw_ui_graph::input::VIEW_ENTITY),
     );
     draw_ui_graph
         .add_recording_node(draw_ui_graph::node::UI_PASS, ui_pass_node)

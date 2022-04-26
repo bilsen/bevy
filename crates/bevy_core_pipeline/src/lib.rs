@@ -148,7 +148,7 @@ impl Plugin for CorePipelinePlugin {
         let mut graphs = render_app.world.resource_mut::<RenderGraphs>();
 
         let draw_2d_requirements =
-            SlotRequirements::default().with::<Entity>(draw_2d_graph::input::VIEW_ENTITY.into());
+            SlotRequirements::new::<Entity>(draw_2d_graph::input::VIEW_ENTITY);
 
         let mut draw_2d_graph = RenderGraph::new(draw_2d_graph::NAME, draw_2d_requirements);
         draw_2d_graph
@@ -158,7 +158,7 @@ impl Plugin for CorePipelinePlugin {
         graphs.insert(draw_2d_graph);
 
         let draw_3d_requirements =
-            SlotRequirements::default().with::<Entity>(draw_3d_graph::input::VIEW_ENTITY.into());
+            SlotRequirements::new::<Entity>(draw_3d_graph::input::VIEW_ENTITY);
 
         let mut draw_3d_graph = RenderGraph::new(draw_3d_graph::NAME, draw_3d_requirements);
 

@@ -531,6 +531,10 @@ name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 
 [[example]]
+name = "many_cubes_many_cameras"
+path = "examples/stress_tests/many_cubes_many_cameras.rs"
+
+[[example]]
 name = "many_lights"
 path = "examples/stress_tests/many_lights.rs"
 

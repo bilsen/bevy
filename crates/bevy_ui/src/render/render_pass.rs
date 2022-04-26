@@ -55,7 +55,7 @@ impl UiPassNode {
 
 impl Node for UiPassNode {
     fn slot_requirements(&self) -> SlotRequirements {
-        SlotRequirements::default().with::<Entity>(draw_2d_graph::input::VIEW_ENTITY.into())
+        SlotRequirements::new::<Entity>(draw_2d_graph::input::VIEW_ENTITY)
     }
 
     fn update(&mut self, world: &mut World) {

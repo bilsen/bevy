@@ -33,7 +33,7 @@ impl MainPass3dNode {
 
 impl Node for MainPass3dNode {
     fn slot_requirements(&self) -> SlotRequirements {
-        SlotRequirements::default().with::<Entity>(draw_3d_graph::input::VIEW_ENTITY.into())
+        SlotRequirements::new::<Entity>(draw_3d_graph::input::VIEW_ENTITY)
     }
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
