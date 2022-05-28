@@ -54,33 +54,6 @@ impl SlotRequirements {
     }
 
 
-
-    // pub fn with_default<T: SlotValue>(
-    //     mut self,
-    //     slot_label: &'static str,
-    //     value: T,
-    // ) -> Result<Self, SlotError> {
-    //     todo!("Fix this");
-    //     // let slot_name = slot_label.into();
-
-    //     // if let Some(ty) = self.type_ids.get(&slot_name) {
-    //     //     if ty != &TypeId::of::<T>() {
-    //     //         let expected_type_name = self.type_names[ty].clone();
-
-    //     //         return Err(SlotError::SlotTypeError {
-    //     //             slot_name: format!("{:?}", slot_name).into(),
-    //     //             expected_type: expected_type_name.into(),
-    //     //             actual_type: type_name::<T>().into(),
-    //     //         });
-    //     //     }
-    //     // }
-
-    //     // self.type_ids.insert(slot_name.clone(), TypeId::of::<T>());
-    //     // self.defaults.insert(slot_name.clone(), Box::new(value));
-
-    //     Ok(self)
-    // }
-
     pub(crate) fn get_slot_requirement_error(
         &self,
         graph_requirements: &SlotRequirements,

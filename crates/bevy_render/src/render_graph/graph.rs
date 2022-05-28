@@ -110,6 +110,7 @@ pub struct RenderGraph {
     before: HashMap<NodeId, HashSet<NodeId>>,
     after: HashMap<NodeId, HashSet<NodeId>>,
     labels: HashMap<BoxedRenderNodeLabel, NodeId>,
+    sorted_nodes: Vec<NodeId>,
     requirements: SlotRequirements,
 }
 
@@ -122,11 +123,39 @@ impl RenderGraph {
             id: RenderGraphId::new(),
             before: Default::default(),
             after: Default::default(),
+            sorted_nodes: Vec::new(),
             label,
             requirements,
         }
     }
 
+    fn sort_nodes(&mut self) -> bool {
+        let sorted_nodes = Vec::new();
+        let mut in_degrees: HashMap<_, _> = self
+            .nodes
+            .iter()
+            .map(|(id, _)| (*id, self.before(id).len()))
+            .collect();
+        let mut queue: Vec<_> = in_degrees
+            .iter()
+            .filter_map(|(id, len)| (*len == 0).then(|| *id))
+            .collect();
+
+        while let Some(id) = queue.pop() {
+            self.sorted_nodes.push(id);
+            for after_id in self.after[&id].iter() {
+                in_degrees.get_mut(after_id).map(|not_seen| *not_seen -= 1);
+                if in_degrees[after_id] == 0 {
+                    queue.push(*after_id);
+                }
+            }
+        }
+        if sorted_nodes.len() != self.nodes.len() {
+            return false;
+        }
+        self.sorted_nodes = sorted_nodes;
+        true
+    }
     pub fn requirements(&self) -> &SlotRequirements {
         &self.requirements
     }
@@ -189,6 +218,7 @@ impl RenderGraph {
         self.labels.insert(label, id);
         self.after.insert(id, HashSet::default());
         self.before.insert(id, HashSet::default());
+        self.sort_nodes(); 
         Ok(self)
     }
 
@@ -209,7 +239,16 @@ impl RenderGraph {
             .entry(after_id)
             .or_insert(HashSet::default())
             .insert(before_id);
-        Ok(self)
+
+        if !self.sort_nodes() {
+            Err(RenderGraphError::EdgeAddError {
+                graph: format!("{:?}", self.label).into(),
+                before: format!("{:?}", self.nodes[&before_id].get_label()).into(),
+                after: format!("{:?}", self.nodes[&after_id].get_label().dyn_clone()).into(),
+            })
+        } else {
+            Ok(self)
+        }
     }
     /// Removes edge between nodes. If it already exists it will do nothing
     pub fn remove_edge(
@@ -228,6 +267,7 @@ impl RenderGraph {
             .entry(after_id)
             .or_insert(HashSet::default())
             .take(&before_id);
+        // Removing an edge will not invalidate node sort
         Ok(self)
     }
 

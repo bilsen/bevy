@@ -43,6 +43,13 @@ pub enum RenderGraphError {
         #[source]
         node_error: NodeAddError,
     },
+    #[error("Adding edge from {before} to {after} in graph {graph} resulted in a loop")]
+    EdgeAddError {
+        graph: Cow<'static, str>,
+        before: Cow<'static, str>,
+        after: Cow<'static, str>
+    }
+
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -156,4 +163,13 @@ pub enum RecordingError {
         #[source]
         value_error: SlotValueError,
     },
+}
+
+
+
+mod tests {
+    #[test]
+    fn add_node_with_unsatisfied_requirements() {
+
+    }
 }
